@@ -90,3 +90,4 @@ public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매�
 - v15: 튕김 대응(외곽선 · HDR 제거, 본 텍스처 · 조리대 GPU 누수 수정), 표준 click 복원, 메뉴판 탭 잠금 제거, 반투명 대화 · 품평 창, 리액션 ON/OFF, 슬라이스 웨지 → 중력 → 감쇠 탄성 + 겹침.
 - v16: 메뉴판 무스크롤 · pointerdown 재작성, 28자 1문장, `~라니` 문구 삭제 · 메뉴 설명 교체, 소스병 · 도구 관통 차단(toolClear.js).
 - v17: 120px 하드락 철거(잘림 원인), visualViewport 동기화, 조리대 하단 패널 2줄 구조, 4개 뷰포트 잘림 0건 전수 검사.
+- v18: 손님 착석 디테일 — 의자 칸으로 걸어 들어가지 않고 옆(없으면 뒤) 빈 칸으로 접근 → 등받이를 잡고 의자를 36cm 빼기 → 의자와 테이블 사이로 들어서기 → 앉기 → 앉은 채 의자 당기기. 일어설 때는 역순(의자 밀기 → 일어나기 → 옆으로 나오기 → 의자 다시 넣기). `CafeAI.seatApproach / setChairOffset / animChair`, 제스처 `chair`(ActorRig).

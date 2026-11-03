@@ -168,6 +168,79 @@ export class CafeAI {
     return null;
   }
 
+  // v18 의자 옆 접근 지점: 의자 칸의 좌/우(없으면 뒤) 빈 칸, 그 칸 안에서 의자 바로 옆 위치
+  seatApproach(seat, from) {
+    const [fx, fz] = seat.facing;
+    const [tx, tz] = seat.tile;
+    const px = -fz;
+    const pz = fx; // 의자 기준 오른쪽
+    const c = tileCenter(tx, tz);
+    const opts = [
+      { d: [px, pz], side: true },
+      { d: [-px, -pz], side: true },
+      { d: [-fx, -fz], side: false },
+    ];
+    let best = null;
+    for (const o of opts) {
+      const nt = [tx + o.d[0], tz + o.d[1]];
+      if (!this.walkable(...nt)) continue;
+      const path = from ? findPath(from, nt, this.walkable) : [nt];
+      if (!path) continue;
+      if (!best || path.length < best.path.length) best = { ...o, tile: nt, path };
+    }
+    if (!best) return null;
+    // 옆이면: 의자 옆 0.55m · 테이블 쪽으로 0.1m (의자를 뒤로 빼도 부딪히지 않는 자리)
+    // 뒤면: 의자 뒤 0.62m · 옆으로 0.4m (빼낸 의자를 비켜 선다)
+    const pt = best.side
+      ? c.clone().add(new THREE.Vector3(best.d[0] * 0.55 + fx * 0.1, 0, best.d[1] * 0.55 + fz * 0.1))
+      : c.clone().add(new THREE.Vector3(-fx * 0.62 + px * 0.4, 0, -fz * 0.62 + pz * 0.4));
+    return { ...best, point: pt };
+  }
+
+  // 의자 3D 를 뒤(테이블 반대쪽)로 k 미터 뺀 위치로
+  setChairOffset(seat, k) {
+    const obj = seat.chair.object;
+    if (!obj) return;
+    if (!obj.userData.base) obj.userData.base = obj.position.clone();
+    const b = obj.userData.base;
+    obj.position.set(b.x - seat.facing[0] * k, b.y, b.z - seat.facing[1] * k);
+    seat.chair.pulled = k;
+  }
+
+  // 의자 혼자 움직이는 짧은 애니메이션 (손님이 떠난 뒤 의자를 넣는 마무리 등)
+  animChair(seat, to, dur) {
+    this.chairAnims = (this.chairAnims ?? []).filter((x) => x.seat.chair !== seat.chair);
+    this.chairAnims.push({ seat, from: seat.chair.pulled ?? 0, to, dur, t: 0 });
+  }
+
+  stepChairs(dt) {
+    if (!this.chairAnims?.length) return;
+    for (const a of this.chairAnims) {
+      a.t += dt;
+      const u = Math.min(1, a.t / a.dur);
+      const e = u * u * (3 - 2 * u);
+      this.setChairOffset(a.seat, a.from + (a.to - a.from) * e);
+    }
+    this.chairAnims = this.chairAnims.filter((a) => a.t < a.dur);
+  }
+
+  // 앉은 자세 위치 (의자를 k 만큼 뺀 상태 기준)
+  seatPoseAt(seat, k) {
+    const p = this.seatPose(seat);
+    p.pos.x -= seat.facing[0] * k;
+    p.pos.z -= seat.facing[1] * k;
+    return p;
+  }
+
+  // 빼낸 의자와 테이블 사이, 앉기 직전에 서는 자리
+  standSpot(seat) {
+    const v = tileCenter(...seat.tile);
+    v.x += seat.facing[0] * 0.1;
+    v.z += seat.facing[1] * 0.1;
+    v.y = 0;
+    return v;
+  }
+
   seatPose(seat) {
     const v = tileCenter(...seat.tile);
     v.x += seat.facing[0] * 0.08;
@@ -202,15 +275,16 @@ export class CafeAI {
     this.state.presentNames = this.customers.map((c) => c.persona.name);
     const seats = this.freeSeats().sort(() => Math.random() - 0.5);
     for (const seat of seats) {
-      const tiles = findPath(DOOR_TILE, seat.tile, this.walkable);
-      if (!tiles) continue;
+      const ap = this.seatApproach(seat, DOOR_TILE);
+      if (!ap) continue;
+      const tiles = ap.path;
       const persona = this.guests.next(available, present);
       const a = new Actor(persona.look, { speed: 1.3 });
       // 벽 뒤에서 제 키 그대로 걸어 들어온다 (바닥에서 솟아오르는 연출 없음)
       a.root.position.set(OUT_X, 0, this.door.z);
       a.root.rotation.y = Math.PI / 2;
-      a.setPath([new THREE.Vector3(SILL_X, 0, this.door.z), ...tiles.map(([x, z]) => tileCenter(x, z))]);
-      const c = { id: uid++, actor: a, persona, state: 'walkIn', seat, t: 0, order: null, dish: null };
+      a.setPath([new THREE.Vector3(SILL_X, 0, this.door.z), ...tiles.map(([x, z]) => tileCenter(x, z)), ap.point]);
+      const c = { id: uid++, actor: a, persona, state: 'walkIn', seat, approach: ap, t: 0, order: null, dish: null };
       // v12: 보이지 않는 넉넉한 터치 원기둥 (손님 몸의 약 2.2배) — 대충 근처만 눌러도 손님으로 인식
       a.root.add(hitbox(new THREE.CylinderGeometry(0.55, 0.55, 2.4, 12), 1.2));
       a.root.traverse((o) => (o.userData.customerId = c.id));
@@ -238,15 +312,61 @@ export class CafeAI {
           this.sound.doorBell();
         }
         if (a.move(dt)) {
+          c.state = 'pullChair';
+          c.t = 0;
+          a.pose = 'idle';
+          a.gesture = { type: 'chair', t: 0, dur: 0.75 };
+        }
+        break;
+      case 'pullChair': {
+        // 의자 등받이를 잡고 뒤로 스윽 뺀다
+        const back = this.standSpot(c.seat).sub(new THREE.Vector3(c.seat.facing[0] * 0.61, 0, c.seat.facing[1] * 0.61));
+        a.faceTo(back, dt);
+        const u = Math.min(1, Math.max(0, (c.t - 0.12) / 0.5));
+        this.setChairOffset(c.seat, 0.36 * u * u * (3 - 2 * u));
+        if (c.t >= 0.7) {
+          c.state = 'stepIn';
+          c.t = 0;
+          c.from = a.root.position.clone();
+        }
+        break;
+      }
+      case 'stepIn': {
+        // 빼낸 의자와 테이블 사이로 들어서며 테이블 쪽으로 돌아선다
+        const to = this.standSpot(c.seat);
+        const u = Math.min(1, c.t / 0.55);
+        a.root.position.lerpVectors(c.from, to, u * u * (3 - 2 * u));
+        a.face(this.seatPose(c.seat).yaw, dt, 9);
+        a.pose = 'idle';
+        a.manual = u < 1 ? 0.6 : 0; // 몇 걸음 옮기는 동안 걷기 동작
+        if (u >= 1) {
           c.state = 'sitDown';
           c.t = 0;
           c.from = a.root.position.clone();
         }
         break;
+      }
       case 'sitDown': {
-        const { pos, yaw } = this.seatPose(c.seat);
+        // 빼 둔 의자 위로 천천히 앉는다
+        const { pos, yaw } = this.seatPoseAt(c.seat, 0.36);
         const u = Math.min(1, c.t / 0.5);
-        a.root.position.lerpVectors(c.from, pos, u);
+        a.root.position.lerpVectors(c.from, pos, u * u * (3 - 2 * u));
+        a.face(yaw, dt, 14);
+        a.pose = 'sit';
+        if (u >= 1) {
+          c.state = 'scootIn';
+          c.t = 0;
+          a.gesture = { type: 'chair', t: 0, dur: 0.6, seated: true };
+        }
+        break;
+      }
+      case 'scootIn': {
+        // 앉은 채로 의자를 테이블 쪽으로 당겨 붙인다 (손님과 의자가 함께)
+        const u = Math.min(1, c.t / 0.55);
+        const k = 0.36 * (1 - u * u * (3 - 2 * u));
+        this.setChairOffset(c.seat, k);
+        const { pos, yaw } = this.seatPoseAt(c.seat, k);
+        a.root.position.copy(pos);
         a.face(yaw, dt, 14);
         a.pose = 'sit';
         if (u >= 1) {
@@ -310,10 +430,53 @@ export class CafeAI {
         if (c.t > 2.4) c.bubble.hide();
         if (c.t >= afterTime()) this.finishVisit(c);
         break;
-      case 'standUp': {
-        const u = Math.min(1, c.t / 0.45);
-        a.root.position.y = c.fromY * (1 - u);
+      case 'scootOut': {
+        // 앉은 채로 의자를 뒤로 밀어 일어날 공간을 만든다
+        const s = c.leaveSeat;
+        const u = Math.min(1, c.t / 0.5);
+        const k = 0.36 * u * u * (3 - 2 * u);
+        this.setChairOffset(s, k);
+        const { pos } = this.seatPoseAt(s, k);
+        a.root.position.copy(pos);
+        a.pose = 'sit';
         if (u >= 1) {
+          c.state = 'standUp';
+          c.t = 0;
+          c.from = a.root.position.clone();
+        }
+        break;
+      }
+      case 'standUp': {
+        const s = c.leaveSeat;
+        const u = Math.min(1, c.t / 0.45);
+        const to = s ? this.standSpot(s) : c.from.clone().setY(0);
+        a.root.position.lerpVectors(c.from, to, u * u * (3 - 2 * u));
+        a.pose = u < 0.35 ? 'sit' : 'idle';
+        if (u >= 1) {
+          c.state = s ? 'stepOut' : 'walkOut';
+          c.t = 0;
+          c.from = a.root.position.clone();
+          if (!s) a.setPath(this.exitPath(a));
+        }
+        break;
+      }
+      case 'stepOut': {
+        // 의자 옆으로 비켜 나와서, 의자 등받이를 잡고 다시 넣어 둔다
+        const s = c.leaveSeat;
+        const ap = c.approach ?? this.seatApproach(s, null);
+        const to = ap?.point ?? c.from;
+        const u = Math.min(1, c.t / 0.55);
+        a.root.position.lerpVectors(c.from, to, u * u * (3 - 2 * u));
+        a.faceTo(to.clone().add(to.clone().sub(c.from)), dt);
+        a.pose = 'idle';
+        a.manual = u < 1 ? 0.6 : 0; // 몇 걸음 옮기는 동안 걷기 동작
+        if (u >= 1 && !c.pushed) {
+          c.pushed = true;
+          a.gesture = { type: 'chair', t: 0, dur: 0.6 };
+          this.animChair(s, 0, 0.5);
+        }
+        if (u >= 1) a.faceTo(this.standSpot(s), dt);
+        if (c.t >= 1.1) {
           a.pose = 'idle';
           a.setPath(this.exitPath(a));
           c.state = 'walkOut';
@@ -500,8 +663,9 @@ export class CafeAI {
     c.bubble.set('<span>잘 먹고 가요</span>', 'soft');
     setTimeout(() => c.bubble.hide(), 1600);
     c.fromY = c.actor.root.position.y;
+    c.leaveSeat = c.seat; // 일어서며 의자를 밀고 · 다시 넣을 때 쓴다
     c.seat = null;
-    c.state = 'standUp';
+    c.state = 'scootOut';
     c.t = 0;
   }
 
@@ -512,6 +676,8 @@ export class CafeAI {
       disposeObject(c.dish);
       c.dish = null;
     }
+    // v18: 빼 둔 의자가 남지 않게 (경로가 막혀 강제 퇴장한 경우 등)
+    for (const st of [c.seat, c.leaveSeat]) if (st?.chair?.pulled) this.animChair(st, 0, 0.4);
     c.bubble.remove();
     this.root.remove(c.actor.root);
     this.customers = this.customers.filter((x) => x !== c);
@@ -770,6 +936,7 @@ export class CafeAI {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) this.spawnTimer = this.trySpawn() ? this.interval() : 4;
     for (const c of [...this.customers]) this.updateCustomer(c, dt);
+    this.stepChairs(dt);
   }
 
   // 셰프 애니메이션·발소리는 게임 속도와 무관하게 실시간으로

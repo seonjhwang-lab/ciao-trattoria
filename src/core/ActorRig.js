@@ -243,7 +243,7 @@ export function updateRig(actor, dt) {
   // 손님 제스처 (클립 위에 덧씌우는 상체 모션): 취향 저격 환호 · 첫 입 시식
   const gs = actor.gesture;
   if (gs) {
-    if (gs.type === 'cheer' || gs.type === 'eat') gs.t += dt;
+    if (gs.type === 'cheer' || gs.type === 'eat' || gs.type === 'chair') gs.t += dt;
     applyGesture(actor, rig, gs);
     if (gs.dur && gs.t >= gs.dur) actor.gesture = null;
   }
@@ -309,6 +309,17 @@ function applyGesture(actor, rig, gs) {
     rotateWorld(B.ra, Y, (0.55 + 0.25 * clap) * w, root);
     rotateWorld(B.lf, Y, (-0.9 - 0.2 * clap) * w, root);
     rotateWorld(B.rf, Y, (0.9 + 0.2 * clap) * w, root);
+  } else if (gs.type === 'chair') {
+    // v18: 의자 등받이(서 있을 때) · 시트 양옆(앉아 있을 때)을 두 손으로 잡는다
+    const w = Math.min(1, gs.t / 0.18) * Math.min(1, Math.max(0, ((gs.dur ?? 0.7) - gs.t) / 0.2));
+    const low = gs.seated ? 0.25 : 0;
+    rotateWorld(B.spine, X, (0.22 + low * 0.4) * w, root); // 살짝 숙여
+    rotateWorld(B.la, X, (-0.75 + low) * w, root);
+    rotateWorld(B.ra, X, (-0.75 + low) * w, root);
+    rotateWorld(B.la, Y, -0.2 * w, root);
+    rotateWorld(B.ra, Y, 0.2 * w, root);
+    rotateWorld(B.lf, X, -0.35 * w, root);
+    rotateWorld(B.rf, X, -0.35 * w, root);
   } else if (gs.type === 'eat') {
     // 3.5초 먹방: 약 1.1초마다 접시에서 입가로 한 입, 씹으며 고개를 끄덕
     const t = gs.t;
