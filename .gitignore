@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+# Mixamo 원본 FBX — 재배포하지 않는다 (변환본 public/assets/models/characters/mixamo_anims.glb 만 커밋)
+assets-src/
+# v15 부터 쓰지 않는 HDRI
+public/assets/hdri/
+# 빌드 산출물 · 테스트 임시 파일
+public/artifact.html
+public/__*.html
+public/__t.js
+.claude/settings.local.json

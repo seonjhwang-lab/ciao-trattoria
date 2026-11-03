@@ -1,0 +1,230 @@
+/* v15: 반투명 슬림 글래스 UI — 대화창 · 추천 적중 배너 · 시식 품평 카드 · 말풍선 (뒤쪽 매장이 비쳐 보인다) */
+:root {
+  --glass: rgba(25, 20, 16, 0.72);
+  --glass-line: rgba(255, 248, 238, 0.22);
+  --glass-ink: #fff8ee;
+  --glass-sub: rgba(255, 248, 238, 0.72);
+  --glass-btn: rgba(255, 248, 238, 0.12);
+}
+
+/* ───── 대화창: 기존 대비 약 60% 높이 ───── */
+.dlg .dlg-card {
+  background: var(--glass) !important;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--glass-ink) !important;
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28) !important;
+  padding: 9px 10px 10px !important;
+  border-radius: 16px !important;
+  background-image: none !important;
+}
+.dlg .dlg-card * {
+  color: inherit;
+}
+.dlg .dlg-who {
+  gap: 8px !important;
+  min-height: 0 !important;
+}
+.dlg .dlg-who b {
+  font-size: 14.5px !important;
+  color: var(--glass-ink) !important;
+}
+.dlg .dlg-who small {
+  font-size: 10.5px !important;
+  color: var(--glass-sub) !important;
+}
+.dlg .dlg-face {
+  width: 34px !important;
+  height: 34px !important;
+}
+.dlg .dlg-x {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  background: var(--glass-btn) !important;
+  border-color: var(--glass-line) !important;
+  color: var(--glass-ink) !important;
+  box-shadow: none !important;
+}
+.dlg .dlg-text {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  margin: 6px 2px 7px !important;
+  color: var(--glass-ink) !important;
+  max-height: 3.1em;
+  overflow: hidden;
+}
+.dlg .dlg-choices {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 6px !important;
+}
+.dlg .dlg-btn {
+  min-height: 38px !important;
+  padding: 5px 6px !important;
+  font-size: 12px !important;
+  background: var(--glass-btn) !important;
+  border: 1px solid var(--glass-line) !important;
+  color: var(--glass-ink) !important;
+  box-shadow: none !important;
+  border-radius: 11px !important;
+  gap: 4px !important;
+}
+.dlg .dlg-btn span {
+  font-size: 12px !important;
+  color: var(--glass-ink) !important;
+  white-space: normal !important;
+  line-height: 1.2 !important;
+}
+.dlg .dlg-btn small {
+  color: var(--glass-sub) !important;
+  font-size: 10px !important;
+}
+.dlg .dlg-btn .ic {
+  --icw: 15px;
+  --ich: 15px;
+  width: 15px !important;
+  height: 15px !important;
+}
+.dlg .dlg-btn.primary {
+  background: rgba(196, 92, 52, 0.82) !important;
+  border-color: rgba(255, 210, 170, 0.5) !important;
+}
+.dlg .dlg-btn.wide {
+  grid-column: 1 / -1;
+}
+.dlg .dlg-tags span,
+.dlg .dlg-tags i {
+  background: var(--glass-btn) !important;
+  color: var(--glass-ink) !important;
+  border-color: var(--glass-line) !important;
+}
+
+/* 추천 적중 배너 */
+.dlg .dlg-banner span,
+.dlg-banner {
+  background: rgba(196, 140, 52, 0.78) !important;
+  color: #fff8ee !important;
+  border: 0 !important;
+  font-size: 11.5px !important;
+}
+
+/* ───── 시식 품평 카드: 작고 슬림하게, 어디든 탭하면 닫힘 ───── */
+.taste-card {
+  background: var(--glass) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--glass-ink) !important;
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25) !important;
+  width: min(232px, 62vw) !important;
+  max-width: 62vw !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+  font-size: 11.5px !important;
+  cursor: pointer;
+}
+.taste-card * {
+  color: inherit !important;
+}
+.taste-card .tc-head img {
+  width: 28px !important;
+  height: 28px !important;
+}
+.taste-card .tc-head small {
+  font-size: 10px !important;
+  color: var(--glass-sub) !important;
+}
+.taste-card .tc-head b {
+  font-size: 13px !important;
+}
+.taste-card .tc-g {
+  font-size: 15px !important;
+  width: 26px !important;
+  height: 26px !important;
+  line-height: 26px !important;
+}
+.taste-card .tc-quote {
+  font-size: 11.5px !important;
+  line-height: 1.4 !important;
+  margin: 5px 0 !important;
+  max-height: 2.9em;
+  overflow: hidden;
+}
+.taste-card .tc-review {
+  display: none !important;
+}
+.taste-card .tc-pay {
+  font-size: 11px !important;
+  gap: 5px !important;
+}
+.taste-card .tc-pay .ic {
+  --icw: 13px;
+  --ich: 13px;
+}
+.taste-card .tc-tip {
+  background: var(--glass-btn) !important;
+  border-color: var(--glass-line) !important;
+  font-size: 10px !important;
+}
+
+/* ───── 말풍선 · 손님 대사 ───── */
+.bubble {
+  background: var(--glass) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  color: var(--glass-ink) !important;
+  border: 1px solid var(--glass-line) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2) !important;
+  font-size: 11.5px !important;
+  padding: 4px 9px !important;
+  max-width: 200px;
+}
+.bubble * {
+  color: inherit !important;
+}
+.bubble::after,
+.bubble::before {
+  border-top-color: rgba(25, 20, 16, 0.72) !important;
+  opacity: 0.9;
+}
+
+/* ───── 상단 바: 리액션 ON/OFF 토글 (보유 자금 옆) ───── */
+.hud-top .hud-react {
+  margin-left: 8px;
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 2px solid #2b1d14;
+  background: #fffaf0;
+  color: #2b1d14;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 3px 0 #2b1d14;
+  pointer-events: auto !important;
+}
+.hud-top .hud-react .ic {
+  --icw: 16px;
+  --ich: 16px;
+}
+.hud-top .hud-react b {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #3f6a3c;
+  color: #fff8ee;
+}
+.hud-top .hud-react.off {
+  background: #ece5d8;
+  color: #7a6a5a;
+}
+.hud-top .hud-react.off b {
+  background: #9b8f82;
+}

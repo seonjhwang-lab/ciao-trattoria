@@ -1,0 +1,1213 @@
+:root {
+  --ink: #2b2522;
+  --ink-soft: #7a6e64;
+  --paper: rgba(250, 246, 240, 0.94);
+  --paper-solid: #f8f3ec;
+  --line: rgba(60, 40, 25, 0.12);
+  --brass: #b08d57;
+  --brass-deep: #8a6a3a;
+  --sage: #6f7d5a;
+  --terra: #a65e3f;
+  --good: #4f8a5f;
+  --shadow: 0 8px 24px rgba(30, 20, 10, 0.22), 0 1px 3px rgba(30, 20, 10, 0.15);
+  --head: 'Gowun Batang', 'Noto Serif KR', serif;
+  --body: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #e8dfd5;
+  color: var(--ink);
+  font-family: var(--body);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+#app {
+  position: fixed;
+  inset: 0;
+}
+#app canvas {
+  display: block;
+  touch-action: none;
+}
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+#ui > * {
+  pointer-events: auto;
+}
+#ui .hidden,
+#ui .hidden * {
+  pointer-events: none !important;
+}
+button {
+  font-family: var(--body);
+  color: var(--ink);
+  border: none;
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:disabled {
+  cursor: default;
+}
+
+/* ───── 로딩 ───── */
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: radial-gradient(circle at 50% 40%, #f3ece3, #d8cbb8);
+  color: #6b5442;
+  font-family: var(--head);
+  font-size: 19px;
+  transition: opacity 0.6s;
+}
+#loading.done {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.loading-cup {
+  font-size: 54px;
+  animation: bob 1.6s ease-in-out infinite;
+}
+
+/* ───── 상단 HUD ───── */
+.hud-top {
+  position: absolute;
+  top: calc(10px + var(--sat));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.hud-top > * {
+  pointer-events: auto;
+}
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+}
+.pill b {
+  font-family: var(--head);
+  font-size: 16px;
+}
+.pill small {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+.pill.money b {
+  color: var(--brass-deep);
+}
+.pill.bump {
+  animation: bump 0.45s;
+}
+.spacer {
+  flex: 1;
+}
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  font-size: 19px;
+  display: grid;
+  place-items: center;
+  transition: transform 0.12s;
+}
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+/* ───── 카메라 버튼 ───── */
+.cam-ctrl {
+  position: absolute;
+  right: 10px;
+  top: calc(66px + var(--sat));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.cam-ctrl .icon-btn {
+  font-size: 22px;
+}
+.zoom-slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 30px;
+  height: 110px;
+  accent-color: var(--brass);
+  margin: 0;
+}
+body.build .cam-ctrl,
+body.cooking .cam-ctrl {
+  opacity: 0.85;
+}
+
+/* ───── 하단: 주문 티켓 + 탭바 ───── */
+.hud-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 10px calc(10px + var(--sab));
+  pointer-events: none;
+}
+.hud-bottom > * {
+  pointer-events: auto;
+}
+.tickets {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.tickets::-webkit-scrollbar {
+  display: none;
+}
+.tickets.hidden {
+  display: none;
+}
+.ticket {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  text-align: left;
+  border-left: 4px solid var(--brass);
+  animation: pop 0.3s;
+}
+.ticket .emo {
+  grid-row: span 2;
+  font-size: 24px;
+}
+.ticket .nm {
+  font-family: var(--head);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ticket small {
+  font-size: 11px;
+  color: var(--brass-deep);
+}
+.ticket.busy {
+  border-left-color: var(--sage);
+  opacity: 0.88;
+}
+.ticket.busy small {
+  color: var(--sage);
+}
+.ticket.empty {
+  display: block;
+  min-height: 0;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  border-left-color: transparent;
+}
+.tabbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 22px;
+  background: rgba(33, 29, 27, 0.92);
+  box-shadow: var(--shadow);
+}
+.tabbar button {
+  flex: 1;
+  min-height: 52px;
+  border-radius: 16px;
+  color: #d8cfc2;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.tabbar button span {
+  font-size: 14px;
+  font-weight: 600;
+}
+.tabbar button.on {
+  background: linear-gradient(135deg, #c9a46a, #a6824c);
+  color: #1d1a18;
+}
+
+/* ───── 3D 라벨 (말풍선·이펙트) ───── */
+.label-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+.label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+.bubble {
+  position: absolute;
+  left: 0;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #fbf8f3;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  font-size: 13px;
+  white-space: nowrap;
+  animation: bubbleIn 0.3s;
+}
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.bubble.order {
+  pointer-events: auto;
+  cursor: pointer;
+  min-height: 40px;
+  padding: 6px 12px 6px 10px;
+  border: 2px solid var(--brass);
+  font-family: var(--head);
+  font-weight: 700;
+  animation: bubbleIn 0.3s, nudge 2.4s ease-in-out 0.3s infinite;
+}
+.bubble.order .emo {
+  font-size: 20px;
+}
+.bubble.order i {
+  font-style: normal;
+  font-family: var(--body);
+  font-size: 11px;
+  color: #fff;
+  background: var(--brass);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.bubble .prog {
+  width: 54px;
+  height: 6px;
+  border-radius: 6px;
+  background: #e6ddd0;
+  overflow: hidden;
+}
+.bubble .prog i {
+  display: block;
+  height: 100%;
+  background: var(--sage);
+}
+.bubble.react {
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 13px;
+}
+.bubble .g {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+}
+.g-S {
+  background: linear-gradient(135deg, #e8c766, #b8902f);
+}
+.g-A {
+  background: #5f8f6a;
+}
+.g-B {
+  background: #7d8898;
+}
+.g-C {
+  background: #b07a5a;
+}
+.react-S {
+  background: #fff8e3;
+  box-shadow: 0 0 0 2px #e8c766, 0 8px 22px rgba(232, 199, 102, 0.5);
+}
+.fx {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  animation-fill-mode: both;
+}
+.fx-rise {
+  font-size: 26px;
+  animation: rise 1.7s ease-out both;
+}
+.fx-burst {
+  font-size: 22px;
+  animation: burst 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.fx-drip {
+  font-size: 24px;
+  animation: drip 1.6s ease-in both;
+}
+.fx-pop {
+  font-size: 24px;
+  animation: rise 0.9s ease-out both;
+}
+.fx-coin {
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: #fbf3dc;
+  border: 2px solid var(--brass);
+  color: var(--brass-deep);
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+  animation: rise 2.4s ease-out both;
+}
+.fx-coin small {
+  display: block;
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 10px;
+}
+
+/* ───── 꾸미기 시트 ───── */
+.build-sheet {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(86px + var(--sab));
+  padding: 10px;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  transition: transform 0.3s, opacity 0.25s;
+}
+.build-sheet.hidden {
+  display: none;
+}
+.cats {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 8px;
+  touch-action: pan-x;
+}
+.cats::-webkit-scrollbar,
+.cards::-webkit-scrollbar {
+  display: none;
+}
+.cats button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: rgba(60, 40, 25, 0.06);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cats button.on {
+  background: var(--ink);
+  color: #f3ebdf;
+}
+.cards {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.card {
+  flex: 0 0 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid transparent;
+}
+.card.on {
+  border-color: var(--brass);
+}
+.card.poor {
+  opacity: 0.45;
+}
+.card img {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 60%, #f2ebe1, #e2d8ca);
+}
+.card.finish img {
+  object-fit: cover;
+}
+.card .nm {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  min-height: 29px;
+  display: flex;
+  align-items: center;
+}
+.card .pr {
+  font-size: 11px;
+  color: var(--brass-deep);
+}
+
+/* ───── 플로팅 가구 메뉴 ───── */
+.float-menu {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(33, 29, 27, 0.94);
+  color: #f3ebdf;
+  box-shadow: var(--shadow);
+  min-width: 228px;
+  transition: opacity 0.15s;
+}
+.float-menu.hidden {
+  display: none;
+}
+.fm-head {
+  padding: 2px 6px 8px;
+}
+.fm-head b {
+  display: block;
+  font-family: var(--head);
+  font-size: 15px;
+}
+.fm-head small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #c9bdae;
+}
+.fm-head small i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+}
+.fm-btns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.fm-btns button {
+  min-height: 56px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3ebdf;
+  font-size: 19px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.fm-btns button span {
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.fm-btns button.ok {
+  background: var(--good);
+}
+.fm-btns button.ok.off {
+  background: rgba(235, 107, 107, 0.35);
+}
+.fm-btns button.sell {
+  color: #f1a594;
+}
+.fm-tip {
+  padding: 6px 4px 0;
+  font-size: 10.5px;
+  color: #a99d8f;
+  text-align: center;
+}
+
+/* ───── 조리 팝업 ───── */
+.cook {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 15, 12, 0.55);
+  transition: opacity 0.2s;
+  z-index: 20;
+}
+.cook.hidden {
+  display: none;
+}
+.cook-sheet {
+  width: min(540px, 100%);
+  height: min(100%, 860px);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: calc(12px + var(--sat)) 14px calc(12px + var(--sab));
+  background: var(--paper-solid);
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+@media (min-width: 600px) and (min-height: 700px) {
+  .cook-sheet {
+    height: auto;
+    max-height: calc(var(--ah, 100vh) * 0.94);
+    border-radius: 28px;
+    padding: 16px 18px 18px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+  }
+}
+.cook-sheet header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.cook-ttl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.cook-ttl .emo {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #2b2522;
+  font-size: 26px;
+}
+.cook-ttl h3 {
+  margin: 0;
+  font-family: var(--head);
+  font-size: 19px;
+}
+.cook-ttl small {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.cook-sheet .close {
+  background: #fff;
+}
+.recipe-card {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1.5px dashed rgba(176, 141, 87, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.recipe-card li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  padding: 3px 4px;
+  border-radius: 8px;
+}
+.recipe-card li i {
+  flex: 0 0 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 11px;
+  background: #ece5da;
+}
+.recipe-card li span {
+  flex: 1;
+}
+.recipe-card li b {
+  font-family: var(--head);
+  color: var(--good);
+}
+.recipe-card li.now {
+  background: #fbf1df;
+  color: var(--ink);
+  font-weight: 600;
+}
+.recipe-card li.now i {
+  background: var(--brass);
+  color: #fff;
+}
+.recipe-card li.done i {
+  background: var(--good);
+  color: #fff;
+}
+.cook-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ───── 미니게임 ───── */
+.mg {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: pop 0.25s;
+}
+.mg-title {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.mg-title b {
+  font-family: var(--head);
+  font-size: 16px;
+  color: var(--ink);
+}
+.mg-title span {
+  margin-left: auto;
+  font-size: 12px;
+}
+.mg-title em {
+  font-style: normal;
+  color: var(--terra);
+  font-weight: 700;
+}
+.mg-area {
+  position: relative;
+}
+.mg-canvas {
+  display: block;
+  border-radius: 20px;
+  touch-action: none;
+}
+.mg-hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  text-align: center;
+  min-height: 18px;
+}
+.mg-hint.flash {
+  animation: flash 0.6s;
+  color: var(--terra);
+}
+.mg-btn {
+  min-height: 50px;
+  padding: 0 22px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.06);
+  font-size: 15px;
+  font-weight: 700;
+}
+.mg-btn.primary {
+  background: var(--ink);
+  color: #f3ebdf;
+}
+.mg-btn.big {
+  min-height: 58px;
+  min-width: 220px;
+  font-size: 17px;
+}
+.mg-btn.hold {
+  min-height: 66px;
+  min-width: 240px;
+  background: linear-gradient(135deg, #c9a46a, #a6824c);
+  color: #1d1a18;
+  font-size: 17px;
+  touch-action: none;
+  transition: transform 0.08s;
+}
+.mg-btn.hold.down {
+  transform: scale(0.96);
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+.mg-btn:disabled {
+  opacity: 0.4;
+}
+.mg-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.mg-meter {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.mg-meter .bar {
+  position: relative;
+  flex: 1;
+  height: 12px;
+  border-radius: 8px;
+  background: #e6ddd0;
+  overflow: hidden;
+}
+.mg-meter .bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--terra);
+  transition: width 0.1s;
+}
+.mg-meter .bar i.good {
+  background: var(--good);
+}
+.mg-meter .mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ink);
+}
+.mg-seq {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mg-seq span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 12px;
+}
+.mg-seq i {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+  font-style: normal;
+  font-size: 10px;
+}
+.mg-opts {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+.mg-opt {
+  min-height: 52px;
+  padding: 4px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid #e6ddd0;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.mg-opt span {
+  font-size: 20px;
+}
+.mg-opt:active {
+  transform: scale(0.95);
+}
+.mg-pop {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: rgba(79, 138, 95, 0.95);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rise 1.1s ease-out both;
+}
+.mg-pop.bad {
+  background: rgba(166, 94, 63, 0.95);
+}
+
+/* ───── 결과 등급 ───── */
+.result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+  animation: pop 0.35s;
+}
+.badge {
+  width: 92px;
+  height: 92px;
+  flex: 0 0 92px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25), inset 0 -6px 0 rgba(0, 0, 0, 0.15);
+  animation: stamp 0.55s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.badge span {
+  font-family: var(--head);
+  font-size: 52px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+}
+.badge-S {
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #e3b94a 45%, #a67c22);
+  box-shadow: 0 0 0 6px rgba(232, 199, 102, 0.35), 0 12px 30px rgba(166, 124, 34, 0.5);
+}
+.badge-A {
+  background: radial-gradient(circle at 35% 30%, #a9d1b0, #5f8f6a);
+}
+.badge-B {
+  background: radial-gradient(circle at 35% 30%, #c3cad4, #7d8898);
+}
+.badge-C {
+  background: radial-gradient(circle at 35% 30%, #e2b59a, #b07a5a);
+}
+.result .total {
+  font-family: var(--head);
+  font-size: 24px;
+  font-weight: 700;
+}
+.result .rx {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.breakdown {
+  list-style: none;
+  width: 100%;
+  margin: 4px 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff;
+}
+.breakdown li {
+  display: grid;
+  grid-template-columns: 7.5em 1fr 2.4em;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+.breakdown .bar {
+  height: 8px;
+  border-radius: 6px;
+  background: #ece5da;
+  overflow: hidden;
+}
+.breakdown .bar i {
+  display: block;
+  height: 100%;
+  background: var(--brass);
+}
+.breakdown b {
+  text-align: right;
+  font-family: var(--head);
+}
+.result .expect {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.result .expect b {
+  color: var(--brass-deep);
+}
+
+/* ───── 토스트 ───── */
+.toast-box {
+  position: absolute;
+  top: calc(64px + var(--sat));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(var(--aw, 100vw) * 0.92), 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none !important;
+  z-index: 30;
+}
+.toast {
+  padding: 9px 16px;
+  border-radius: 16px;
+  background: rgba(33, 29, 27, 0.9);
+  color: #f3ebdf;
+  font-size: 13px;
+  text-align: center;
+  animation: toastIn 0.25s, toastOut 0.4s 2.3s forwards;
+}
+
+/* ───── 화면 크기 대응 ───── */
+@media (max-width: 420px) {
+  .pill {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .pill b {
+    font-size: 14px;
+  }
+  .pill.clock small,
+  .pill.rep small {
+    display: none;
+  }
+  .hud-top {
+    gap: 4px;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .tickets {
+    position: absolute;
+    left: 10px;
+    bottom: calc(70px + var(--sab));
+    max-width: calc(var(--aw, 100vw) * 0.6);
+    padding-bottom: 0;
+  }
+  .tabbar {
+    width: min(460px, calc(var(--aw, 100vw) * 0.7));
+    margin: 0 auto;
+  }
+  .tabbar button {
+    min-height: 46px;
+  }
+  .cam-ctrl {
+    gap: 6px;
+  }
+  .zoom-slider {
+    height: 70px;
+  }
+  .build-sheet {
+    bottom: calc(70px + var(--sab));
+    right: 70px;
+  }
+  .card {
+    flex-basis: 92px;
+  }
+  .card img {
+    width: 76px;
+    height: 76px;
+  }
+}
+
+@keyframes bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes bump {
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+}
+@keyframes bubbleIn {
+  from {
+    transform: translateX(-50%) translateY(6px) scale(0.8);
+    opacity: 0;
+  }
+}
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx, 0px)), -30%) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dx, 0px)), -60%) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx, 0px)), -300%) scale(1);
+  }
+}
+@keyframes burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.1) rotate(40deg);
+  }
+}
+@keyframes drip {
+  0% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), -80%);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), 40%);
+  }
+}
+@keyframes stamp {
+  from {
+    transform: scale(2.2) rotate(-15deg);
+    opacity: 0;
+  }
+}
+@keyframes flash {
+  50% {
+    transform: scale(1.05);
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@keyframes toastOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* 꾸미기 중에는 손님 말풍선을 흐리게 */
+body.build .label-layer {
+  opacity: 0.25;
+}
+body.build .bubble.order {
+  pointer-events: none;
+}
+
+/* 조리 중에는 토스트를 아래로 (레시피 카드를 가리지 않게) */
+body.cooking .toast-box {
+  top: auto;
+  bottom: calc(16px + var(--sab));
+}
+
+/* 가로 모드 스마트폰: 조리 팝업 2단 (왼쪽 레시피 카드 / 오른쪽 미니게임) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .zoom-slider {
+    display: none;
+  }
+  .cook-sheet {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: minmax(200px, 36%) 1fr;
+    grid-template-rows: auto 1fr;
+    column-gap: 14px;
+    align-content: start;
+    padding: 10px 14px calc(10px + var(--sab));
+  }
+  .cook-sheet header {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .recipe-card {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+  }
+  .cook-stage {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .mg {
+    gap: 6px;
+  }
+}

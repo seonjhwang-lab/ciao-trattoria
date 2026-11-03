@@ -1,0 +1,84 @@
+# Ciao, Trattoria! — 프로젝트 인수인계 (CLAUDE.md)
+
+이 파일은 다른 PC · 다른 Claude 세션에서 이 저장소를 열었을 때 지금까지의 맥락을 바로 파악하기 위한 문서입니다.
+**응답 · 커밋 설명은 한국어로.** 작업이 끝날 때마다 빌드 → 검증 → 배포(아래 "배포")까지 한 번에 진행합니다.
+
+## 1. 무엇인가
+
+- 《Ciao, Trattoria!》 — 모바일 세로 화면 전용, **스트레스 없는** 아늑한 이탈리안 트라토리아 운영 · 요리 시뮬레이션.
+  - 인내심 타이머 · 실패 · 화난 손님 · 게임 오버 **없음**. 보상은 하트 · 팁 · 단골 · 해금 등 긍정 강화뿐.
+- 기술: **Vite 8 + Three.js r128 (버전 고정 — 올리지 말 것)**, 순수 JS 모듈 (프레임워크 없음).
+- 사양 문서는 사용자가 붙여 넣는 "N차 지시서"(Gemini 작성)로 내려온다. 지시서의 번호 항목을 빠짐없이 반영하고, 마지막의 검증 지침을 375×812 에서 확인한다.
+- 출시 경로 두 가지:
+  1. **GitHub Pages** (실기 테스트용, `main` push 시 자동 배포 — `.github/workflows/deploy.yml`)
+  2. **Claude 아티팩트** 단일 HTML (`public/artifact.html` → 스크래치패드 `strip.cjs` 로 doctype/html/head/body 태그를 벗긴 사본을 발행). 링크: https://claude.ai/artifact/D68YgE1MvjZZ9JXke2TCFW
+
+## 2. 명령어
+
+```bash
+npm install
+npm run dev          # vite --host, http://localhost:5173 (같은 Wi-Fi 휴대폰은 http://<PC IP>:5173)
+npm run build        # vite build → dist/  +  build:artifact → public/artifact.html  +  이모티콘 검사
+npm run check-emoji  # src · artifact 에 이모지/♥ 같은 그림 문자가 있으면 실패
+npm run fetch-assets # Kenney CC0 모델 다시 받기 → public/assets/models/kenney/
+```
+
+- `vite.config.js` 의 `base: './'` — GitHub Pages 하위 경로(`/ciao-trattoria/`)와 로컬 모두에서 상대 경로로 동작한다. 바꾸지 말 것.
+- 아티팩트 빌드(`scripts/build-artifact.mjs`)는 Three.js r128 + GLTFLoader + SkeletonUtils 를 jsDelivr CDN 에서 불러오고, CSS 를 `<body>` 맨 앞 `#bistro-critical` + `#bistro-css` 두 `<style>` 로 넣는다(없으면 빌드 실패).
+
+## 3. 절대 규칙 (어기면 안 됨)
+
+1. **Native Portrait 세로 고정.** 가로 모드(CSS 회전) 는 거절된 방식. 화면은 `100dvh`, 조리대는 위 3D + 아래 바(`min(26%, 185px)`).
+2. **`OutlineEffect` 사용 금지** (v15). 메쉬마다 외곽선 복제본을 쌓아 모바일 웹뷰가 튕겼다. 렌더는 `renderer.render(scene, camera)` 단일 패스. `.hdr` / `RGBELoader` 도 금지. 픽셀 비율 ≤ 1.25, 그림자 맵 512.
+3. **표준 `<button type="button">` + `addEventListener('click')` 만.** 전역 touchstart/touchend/pointercancel 가로채기, `elementFromPoint` 재탐색, 디바운스 락, UI 위 `preventDefault` 금지 (v12 · v14 의 커스텀 터치 매니저는 실기에서 탭을 먹통으로 만들어 폐기). `src/ui/Tap.js` 의 `bindTap` 은 이름만 남은 순수 click 래퍼. 버튼 안 아이콘/글씨는 CSS `#ui button * { pointer-events: none }`. 매장 3D 탭은 캔버스 자신의 pointer 이벤트로만 판정.
+4. **7×8 매장 + 통합 마스터 조리대 유지.** `GRID_W 7`, `GRID_D 8`, 문은 왼쪽(서쪽) 높은 벽 `DOOR_TILE [0,6]` (현관 마당 없음). 뒤쪽 2줄 = 주방(체커 타일), 3번째 줄 = 패스 카운터 `s1_pass`(x=5 칸이 "Cucina" 아치 통로), 나머지 = 식사 홀. 조리대는 5칸짜리 `s1_master` 하나이고, 메뉴별 조리대는 `order.recipe.station` 으로 고른다. 통로 바로 앞 (5,3) 은 비워 둬야 셰프가 주방을 드나든다.
+5. **이모지 0개.** 아이콘은 전부 SVG (`src/ui/icons.js`). ♥ ♡ ↔ 💬 같은 문자도 `check-emoji` 에서 빌드가 실패한다.
+6. **45° 마름모 아이소 카메라 고정** (yaw π/4, `SceneManager.fitZoom()`), 확대/회전 UI 없음. 손님 얼굴이 보이도록 의자 방향 유지.
+7. **GPU 자원은 반드시 회수.** 손님 퇴장 시 `disposeObject`(스켈레톤 본 텍스처 포함), 조리대 닫을 때 `Workbench3D` 가 무대에 올라왔던 지오메트리 · 재질을 모두 해제(서빙 접시 `keepDish` 제외). 여러 곳에서 재사용하는 캐시 텍스처 · 재질은 `userData.shared = true`. 얼굴 텍스처는 256px 풀(`releaseFace`).
+8. three.js 는 r128 고정. r128 재질에서 스키닝은 `skinning: true` 필요.
+
+## 4. 구조와 핵심 파일
+
+```
+index.html                 진입점 (#app 캔버스 · #ui 오버레이)
+src/main.js                부트 · 게임 루프(try/catch 로 다음 프레임 보장) · 탭 → 이동/대화/조리/서빙 연결 · 하루 정산 · 인테리어
+src/core/
+  SceneManager.js          렌더러 · 아이소 정사영 카메라 · fitZoom · 절차적 환경맵
+  Toon.js                  툰 램프 셰이더 훅 (외곽선 없음)
+  GridSystem.js            7x8 격자 · 문 · 주방 바닥 · 도어매트
+  WallCutaway.js           벽(카메라 쪽은 낮아짐) · 서쪽 출입문 · 뒷벽 후드/선반/메뉴판 (northGroup)
+  Diorama.js               원목 받침 (현관 마당 없음)
+  CafeAI.js                손님 상태 기계(입장→주문→식사→퇴장) · 셰프 길찾기 · 서빙 · 정산 · disposeObject
+  FurnitureManager.js / BuildMode.js   가구 배치 · 꾸미기 모드
+  Actors.js / ActorRig.js / BodyMesh.js / Character.js   Mixamo 리그 + 절차적 몸 · 옷
+  FaceTextureBuilder.js    캔버스 얼굴(5표정) · 256px 텍스처 풀
+  Progress.js              해금 단계 · 인테리어 카탈로그 · 하루 5명 정산 · 단골 친밀도
+  GameState.js             저장(localStorage) · LAYOUT_VER (배치가 바뀌면 올려서 기본 배치로 초기화)
+  Settings.js              기기별 설정 — reactionsOn() (리액션 ON/OFF)
+  HeroDish.js / BistroDish.js   완성 요리 프리팹
+  DayCycle.js              하루 조명 (PointLight 는 userData.base 필수, 없으면 NaN 으로 씬이 까맣게 됨)
+src/packs/season1_brunch/  레시피 · 손님 · 가구 · 기본 배치 (import.meta.glob 으로 자동 등록되는 시즌 팩)
+src/workbench/
+  Workbench3D.js           조리대 클로즈업 공통 (단계 진행 · 결과 · 완성 연출 · GPU 회수)
+  BoardBench.js            샌드위치 (썰기 · 바르기 · 바트 플레이팅 · 후추 · 반 자르기)
+  Ingredient3D.js          썰 수 있는 재료 · 자연스러운 슬라이스 쓰러짐(stepFall)
+  EspressoBench.js / PastaBench.js / PizzaBench.js / SaladBench.js
+src/ui/                    HUD(보유 자금 · 리액션 토글 · 메뉴) · DialogueUI(대화 · 메뉴판) · Trattoria(카탈로그 · 정산 · 편지) · Overlays(인트로 · 확인 · 품평 카드) · styles-v*.css (나중 파일이 앞 파일을 덮는다, 최신 = styles-v15.css)
+scripts/                   build-artifact.mjs · check-emoji.mjs · fetch-assets.mjs · mixamo/ (FBX → mixamo_anims.glb 변환)
+public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매니페스트
+```
+
+- `assets-src/`(Mixamo 원본 FBX)는 재배포 문제로 저장소에 올리지 않는다(.gitignore). 변환 결과 `public/assets/models/characters/mixamo_anims.glb` 만 커밋.
+
+## 5. 검증 방법
+
+- 375×812(모바일) 에서 확인. 브라우저 pane 은 requestAnimationFrame 이 잘 돌지 않으므로 `__cafe.advance(초)` 로 시뮬레이션을 진행한다.
+- 테스트 도우미는 `public/__t.js` 로 잠깐 복사해 `await import('/__t.js')` 로 쓰고 **빌드 전에 반드시 삭제**.
+- 메모리: 손님 받기 → 조리대 → 서빙을 수십 번 반복하며 `__cafe.sm.renderer.info.memory` (geometries · textures) 가 늘지 않는지 본다. v15 기준 약 240 / 42 에서 고정.
+- 아티팩트 사본은 `<style>` 2개 · scrollHeight 812 · SVG ≤ 48px 를 확인한 뒤 발행.
+
+## 6. 버전 메모 (최근)
+
+- v13: 주방 · 패스 카운터 · 홀 분리, 45° 아이소 복귀, 첫 손님 퇴장 시 멈춤 수정.
+- v14: 7x8 확장, 현관 제거(서쪽 벽 출입문), 손님이 벽 뒤에서 걸어 들어옴.
+- v15: 튕김 대응(외곽선 · HDR 제거, 본 텍스처 · 조리대 GPU 누수 수정), 표준 click 복원, 메뉴판 탭 잠금 제거, 반투명 대화 · 품평 창, 리액션 ON/OFF, 슬라이스 웨지 → 중력 → 감쇠 탄성 + 겹침.

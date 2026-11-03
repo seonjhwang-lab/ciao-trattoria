@@ -1,0 +1,546 @@
+/* v12: iOS 사파리 터치 · HTML 메뉴판 · 카탈로그 · 마감 정산서 · 단골 편지 */
+
+/* ───── 터치: 모든 버튼 · 카드 · 선택지 ───── */
+button,
+.mb-item,
+.mb-tab,
+.dlg-btn,
+.ticket,
+.cat-item,
+[role='button'] {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(184, 74, 39, 0.2);
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* 버튼 · 카드 안의 아이콘이 터치를 삼키지 않게 */
+button svg,
+.mb-item svg,
+.mb-tab svg,
+.dlg-btn svg,
+.cat-item svg,
+.ticket svg,
+button .ic,
+.mb-item .ic {
+  pointer-events: none;
+}
+
+/* ───── 메뉴판: 순수 HTML 카드 (높이 고정 없음 · 태그 줄바꿈 허용 → 절대 잘리지 않는다) ───── */
+.mb-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 2px 5px;
+  min-width: 0;
+}
+.mb-tab .mt-name {
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.mb-tab .mt-it {
+  font-family: var(--title);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 9.5px;
+  line-height: 1.1;
+  color: #b84a27;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.mb-tab.on .mt-it {
+  color: #f2c9a0;
+}
+.mb-item {
+  height: auto;
+  min-height: 0;
+  padding: 12px 14px;
+  overflow: visible;
+  gap: 4px;
+}
+.mb-item .mb-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mb-item .mb-row b {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15.5px;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: keep-all;
+}
+.mb-item .mb-price {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.mb-item em,
+.mb-item q {
+  display: block;
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.35;
+  padding-right: 34px;
+}
+.mb-tags {
+  flex-wrap: wrap !important;
+  overflow: visible !important;
+  row-gap: 4px;
+  padding-right: 30px;
+}
+.mb-tags span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.mb-grid {
+  padding-bottom: 6px;
+}
+
+/* 주문 직후 손님 말풍선 (대사가 길면 2~3줄까지) */
+.bubble.talkline span,
+.talkline span {
+  white-space: normal !important;
+  max-width: 200px;
+  display: block;
+  line-height: 1.35;
+}
+
+/* ───── 공통 종이 모달 틀 ───── */
+.cat,
+.daysum,
+.letter {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(12px + var(--sat)) 12px calc(12px + var(--sab));
+  box-sizing: border-box;
+  background: rgba(43, 29, 20, 0.45);
+  backdrop-filter: blur(3px);
+}
+.cat {
+  z-index: 55;
+}
+.letter {
+  z-index: 60;
+}
+.cat.hidden,
+.daysum.hidden,
+.letter.hidden {
+  display: none;
+}
+.cat-card,
+.ds-card,
+.lt-card {
+  width: min(460px, 100%);
+  max-height: 100%;
+  box-sizing: border-box;
+  border: 2px solid #2b1d14;
+  border-radius: 18px;
+  background: var(--paper-tex, #f7f1e5);
+  color: #2b1d14;
+  box-shadow: 0 0 0 5px #f7f1e5, 0 0 0 6.5px rgba(43, 29, 20, 0.5), 0 22px 50px rgba(30, 18, 10, 0.4);
+  animation: mbIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+
+/* ───── 카탈로그 ───── */
+.cat-card {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 10px;
+  gap: 8px;
+}
+.cat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1.5px solid #2b1d14;
+  padding-bottom: 6px;
+}
+.cat-head b {
+  display: block;
+  font-family: var(--head);
+  font-size: 18px;
+}
+.cat-head small {
+  font-size: 11.5px;
+  color: var(--ink-soft, #6e5a48);
+}
+.cat-x {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid #2b1d14;
+  background: #fbf7ee;
+  color: #2b1d14;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.cat-sum {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cs-money {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--num);
+  font-size: 15px;
+}
+.cs-cozy {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.cs-cozy em {
+  font-style: normal;
+  font-weight: 800;
+  color: #4a6338;
+}
+.stars .st {
+  font-style: normal;
+  color: #d9cbb3;
+  font-size: 15px;
+}
+.stars .st.on {
+  color: #d9a32a;
+}
+.stars .st.half {
+  color: #e8c77a;
+}
+.cat-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 2px 4px;
+  min-height: 0;
+}
+.cat-sec h3 {
+  margin: 0 0 5px;
+  font-family: var(--head);
+  font-size: 14.5px;
+}
+.cat-sec h3 small {
+  display: block;
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--ink-soft, #6e5a48);
+}
+.cat-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.cat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1.5px solid #2b1d14;
+  border-radius: 12px;
+  background: #fffaf0;
+  color: #2b1d14;
+  text-align: left;
+  box-shadow: 2px 3px 0 rgba(43, 29, 20, 0.85);
+}
+.cat-item:active {
+  transform: translate(2px, 3px);
+  box-shadow: none;
+}
+.ci-sw,
+.ci-ic {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid #2b1d14;
+  display: grid;
+  place-items: center;
+  background: #f1e6d2;
+  color: #b84a27;
+}
+.ci-ic .ic {
+  width: 22px;
+  height: 22px;
+  --icw: 22px;
+  --ich: 22px;
+}
+.ci-txt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ci-txt b {
+  display: block;
+  font-family: var(--head);
+  font-size: 14px;
+  line-height: 1.25;
+  white-space: normal;
+}
+.ci-txt small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--ink-soft, #6e5a48);
+  white-space: normal;
+}
+.ci-tag {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-family: var(--num);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: #b84a27;
+  color: #fff;
+  white-space: nowrap;
+}
+.cat-item.s-owned .ci-tag,
+.cat-item.s-on .ci-tag {
+  background: #4a6338;
+}
+.cat-item.s-apply .ci-tag {
+  background: #2b1d14;
+}
+.cat-item.s-short,
+.cat-item.s-lock {
+  opacity: 0.6;
+}
+.cat-item.s-short .ci-tag,
+.cat-item.s-lock .ci-tag {
+  background: #9a8b78;
+}
+.cat-item.s-on {
+  outline: 3px solid #4a6338;
+  outline-offset: 1px;
+}
+
+/* ───── 마감 정산서 ───── */
+.ds-card,
+.lt-card {
+  padding: 16px 16px 14px;
+  text-align: center;
+  overflow-y: auto;
+}
+.ds-ribbon {
+  display: inline-block;
+  padding: 3px 20px;
+  background: #b84a27;
+  color: #fbf1df;
+  font-family: var(--title);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 13px;
+}
+.ds-card h2,
+.lt-card h2 {
+  margin: 6px 0 2px;
+  font-family: var(--head);
+  font-size: 20px;
+}
+.ds-sub {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft, #6e5a48);
+}
+.ds-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  border-top: 1.5px dashed rgba(43, 29, 20, 0.4);
+}
+.ds-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 2px;
+  border-bottom: 1px dashed rgba(43, 29, 20, 0.25);
+  font-size: 13.5px;
+}
+.ds-list li b {
+  font-family: var(--num);
+  text-align: right;
+}
+.ds-list li.total {
+  font-family: var(--head);
+  font-size: 15px;
+}
+.ds-list li.total b {
+  color: #b84a27;
+}
+.ds-money {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  margin: 10px 0;
+  font-size: 13.5px;
+}
+.ds-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ds-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 2px solid #2b1d14;
+  border-radius: 14px;
+  background: #fffaf0;
+  color: #2b1d14;
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 14.5px;
+  box-shadow: 0 3px 0 #2b1d14;
+}
+.ds-btn.primary {
+  background: #4a6338;
+  color: #fbf6ec;
+}
+.ds-btn span {
+  white-space: normal;
+}
+
+/* ───── 단골 편지 ───── */
+.lt-seal {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #b84a27;
+  color: #fff;
+}
+.lt-seal .ic {
+  width: 26px;
+  height: 26px;
+  --icw: 26px;
+  --ich: 26px;
+}
+.lt-text {
+  font-family: var(--head);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+  padding: 10px 12px;
+  background: repeating-linear-gradient(0deg, transparent 0 22px, rgba(43, 29, 20, 0.12) 22px 23px);
+  border-radius: 8px;
+}
+.lt-gift {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #4a6338;
+  font-size: 13px;
+}
+
+/* 단골 수첩 호감도 */
+.book-stat .lv {
+  font-family: var(--title);
+  font-size: 17px;
+  color: #b84a27;
+}
+.book-stat .hearts {
+  font-style: normal;
+  color: #c4485a;
+  letter-spacing: 1px;
+  font-size: 12px;
+}
+.ds-list li span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.ds-list li b {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.lt-card .ds-btn {
+  width: 100%;
+}
+
+.book-stat .hearts {
+  display: flex;
+  gap: 1px;
+}
+.book-stat .hrt {
+  color: #d9cbb3;
+}
+.book-stat .hrt.on {
+  color: #c4485a;
+}
+.book-stat .hrt .ic {
+  width: 11px;
+  height: 11px;
+  --icw: 11px;
+  --ich: 11px;
+}
+
+/* ───── v14: 정보만 보여 주는 요소는 탭을 가로채지 않는다 (손가락 아래 매장 · 손님이 그대로 눌린다) ───── */
+.toast-box,
+.toast-box *,
+.hud-top,
+.tickets,
+.ticket.empty,
+.pill.money,
+.pill.money *,
+.bubble,
+.bubble * {
+  pointer-events: none !important;
+}
+.hud-top > button,
+.hud-top .hud-menu-btn,
+.tickets > .ticket:not(.empty) {
+  pointer-events: auto !important;
+}
+
+/* ───── v15: 표준 click 복원 ───── */
+#ui button * {
+  pointer-events: none !important;
+}
+#ui button {
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+}
+.dlg-text,
+.menu-board,
+.book,
+.hud-menu {
+  cursor: pointer; /* iOS 사파리는 cursor:pointer 가 있어야 일반 요소에도 click 을 보낸다 */
+}
+button.ticket {
+  border: 0;
+  text-align: left;
+  color: inherit;
+}
+.mb-tab.soon {
+  opacity: 0.55;
+}
