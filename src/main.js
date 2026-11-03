@@ -6,6 +6,7 @@ import './ui/styles-v8.css';
 import './ui/styles-v10.css';
 import './ui/styles-v12.css';
 import './ui/styles-v15.css';
+import './ui/styles-v16.css';
 import * as THREE from 'three';
 import { registry } from './packs/index.js';
 import { bus } from './core/EventBus.js';

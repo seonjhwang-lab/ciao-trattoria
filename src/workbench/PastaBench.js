@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getFoodTopY, keepAbove } from './toolClear.js';
 import { kit } from '../core/Kit.js';
 import { RoundedBoxGeometry } from '../core/RoundedBox.js';
 import { Tweens, clamp, scoreWord } from './tween.js';
@@ -962,6 +963,12 @@ export class PastaBench {
     this.grater.visible = true;
     this.grater.position.set(BOWL.x, top + 0.075, BOWL.z - 0.035);
     this.grater.rotation.set(0.75, 0, 0); // 타공 면이 카메라를 향하게
+    // v16: 강판 최저점이 볼 안 파스타 최고점보다 3cm 위 (면을 뚫지 않게)
+    {
+      const bw = this.stage.localToWorld(BOWL.clone());
+      const ft = getFoodTopY(this.stage, { exclude: [this.grater, this.cheese], center: bw, radius: 0.16 });
+      if (Number.isFinite(ft)) keepAbove(this.grater, ft + 0.03);
+    }
     const surf = this.grater.userData.surface;
     surf.attach(this.cheese);
     this.cheese.position.set(0, 0.001, 0);

@@ -1,0 +1,411 @@
+/* v16: 무스크롤 메뉴판 · 하단 창 높이 하드락(120px) · 레이어 간섭 차단 */
+
+/* ───────── 메뉴판: 스크롤 없는 한 화면 고정 그리드 ───────── */
+.menu-board.v16 {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px calc(10px + var(--sab, 0px));
+  background: rgba(25, 20, 16, 0.38);
+  touch-action: none;
+  pointer-events: auto !important;
+}
+.menu-board.v16.hidden {
+  display: none !important;
+}
+.menu-board.v16 * {
+  touch-action: none;
+}
+.mb16-card {
+  width: min(460px, 100%);
+  box-sizing: border-box;
+  background: #fbf6ec;
+  border: 2px solid #2b1d14;
+  border-radius: 18px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  padding: 9px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow: hidden; /* 내부 스크롤 없음 */
+  color: #2b1d14;
+}
+.mb16-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mb16-head b {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 20px;
+}
+.mb16-head small {
+  font-size: 11.5px;
+  color: #6e5a48;
+}
+#ui .mb16-x {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #2b1d14;
+  background: #fffaf0;
+  color: #2b1d14;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  align-self: center;
+}
+.mb16-x .ic {
+  --icw: 16px;
+  --ich: 16px;
+}
+.mb16-known:empty {
+  display: none;
+}
+.mb16-known {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 11px;
+  align-items: center;
+}
+.mb16-known span {
+  color: #6e5a48;
+  margin-right: 2px;
+}
+.mb16-known i {
+  font-style: normal;
+  background: #f3e2c7;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.mb16-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+#ui .mb16-tab {
+  height: 46px;
+  border-radius: 12px;
+  border: 2px solid #2b1d14;
+  background: #fffaf0;
+  color: #2b1d14;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.mb16-tab .ic {
+  --icw: 17px;
+  --ich: 17px;
+}
+.mb16-tab.on {
+  background: #2b1d14;
+  color: #fff8ee;
+}
+.mb16-tab.soon {
+  opacity: 0.5;
+}
+.mb16-list {
+  display: grid;
+  grid-template-rows: repeat(4, 68px);
+  gap: 6px;
+  overflow: hidden !important; /* 최대 4개 → 스크롤 없이 모두 보인다 */
+  height: calc(68px * 4 + 6px * 3);
+}
+.mb16-empty {
+  grid-row: 1 / -1;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  color: #6e5a48;
+  text-align: center;
+}
+#ui .mb16-item {
+  height: 68px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 11px;
+  border-radius: 14px;
+  border: 2px solid #2b1d14;
+  background: #fffdf7;
+  color: #2b1d14;
+  text-align: left;
+  box-shadow: 0 3px 0 #2b1d14;
+}
+.mb16-item:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #2b1d14;
+}
+.mb16-ic {
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #f3e8d6;
+  display: grid;
+  place-items: center;
+}
+.mb16-ic .ic {
+  --icw: 22px;
+  --ich: 22px;
+}
+.mb16-txt {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mb16-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mb16-row b {
+  font-size: 14.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.mb16-hit {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff8ee;
+  background: #b84a27;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.mb16-price {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b84a27;
+}
+.mb16-desc {
+  font-size: 11.5px;
+  color: #6e5a48;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 메뉴판이 열려 있는 동안: 메뉴판 밖의 모든 레이어(대화창 · HUD · 말풍선 · 토스트 · 캔버스)는 터치를 받지 않는다 */
+body.mb-open :not(.menu-board):not(.menu-board *) {
+  pointer-events: none !important;
+}
+body.mb-open .menu-board,
+body.mb-open .menu-board * {
+  pointer-events: auto !important;
+}
+body.mb-open .menu-board svg,
+body.mb-open .menu-board button * {
+  pointer-events: none !important;
+}
+
+/* ───────── 하단 창 높이 하드락: 화면 아래 18% / 120px 를 넘지 않는다 ───────── */
+.dlg .dlg-card {
+  max-height: 120px !important;
+  overflow: hidden !important;
+  padding: 7px 9px 8px !important;
+  gap: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.dlg .dlg-who {
+  align-items: center !important;
+}
+.dlg .dlg-face {
+  width: 28px !important;
+  height: 28px !important;
+}
+.dlg .dlg-who b {
+  font-size: 13.5px !important;
+  line-height: 1.15 !important;
+}
+.dlg .dlg-who small {
+  font-size: 10px !important;
+  line-height: 1.15 !important;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dlg .dlg-tags {
+  display: none !important;
+}
+.dlg .dlg-x {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+}
+.dlg .dlg-banner {
+  display: none !important;
+}
+.dlg .dlg-text {
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
+  margin: 4px 1px 5px !important;
+  max-height: 2.7em !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden !important;
+}
+.dlg .dlg-choices {
+  display: flex !important;
+  gap: 5px !important;
+  flex-wrap: nowrap !important;
+}
+.dlg .dlg-btn,
+.dlg .dlg-btn.wide {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 2px 4px !important;
+  font-size: 11px !important;
+  flex-direction: row !important;
+  gap: 3px !important;
+}
+.dlg .dlg-btn span {
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.dlg .dlg-btn small {
+  display: none !important;
+}
+.dlg .dlg-btn .ic {
+  flex: 0 0 auto;
+}
+
+/* 품평 카드 */
+.taste-card {
+  max-height: 120px !important;
+  overflow: hidden !important;
+}
+.taste-card .tc-quote {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden !important;
+  max-height: 2.8em !important;
+}
+
+/* 말풍선: 2줄까지 */
+.bubble span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* 조리대 하단 바: 120px (안전 영역 제외) 고정 */
+:root {
+  --bar: min(calc(120px + var(--sab, 0px)), 18dvh) !important;
+}
+.wb .wb-side {
+  height: var(--bar) !important;
+  max-height: var(--bar) !important;
+  padding: 6px 10px calc(6px + var(--sab, 0px)) !important;
+  overflow: hidden !important;
+}
+.wb .wb-side .wb-bottom {
+  gap: 4px !important;
+}
+.wb .wb-side .wb-inst b {
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wb .wb-side .wb-inst p {
+  font-size: 11.5px !important;
+  line-height: 1.25 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wb .wb-side .wb-meter {
+  max-height: 24px;
+  font-size: 11.5px;
+}
+.wb .wb-side .wb-btn {
+  min-height: 40px !important;
+  height: 40px;
+}
+.wb .wb-side .wb-result {
+  gap: 5px !important;
+}
+.rs-row .badge {
+  width: 40px !important;
+  height: 40px !important;
+  flex: 0 0 40px !important;
+}
+.rs-row .badge span {
+  font-size: 22px !important;
+}
+.rs-txt .svgt {
+  max-height: 36px !important;
+}
+.wb .wb-side .wb-result .serve {
+  min-height: 44px !important;
+  height: 44px;
+}
+
+/* 대화창 120px 안 배치: 이름줄 28 + 대사 최대 2줄 + 버튼 34 (버튼 줄은 절대 줄어들지 않는다) */
+.dlg .dlg-card {
+  padding: 6px 9px 7px !important;
+}
+.dlg .dlg-who {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  height: 28px !important;
+  gap: 7px !important;
+}
+.dlg .dlg-face {
+  width: 26px !important;
+  height: 26px !important;
+}
+.dlg .dlg-text {
+  flex: 0 1 auto !important;
+  min-height: 0 !important;
+  margin: 3px 1px 4px !important;
+}
+.dlg .dlg-choices {
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  margin-top: auto !important;
+}
+.dlg .dlg-btn,
+.dlg .dlg-btn.wide {
+  height: 34px !important;
+  min-height: 34px !important;
+}

@@ -138,8 +138,9 @@ export class Workbench3D {
 
   // 3D 뷰포트 영역: 가로 = 왼쪽 68%, 세로 = 위쪽 60%
   applyViewRect() {
-    // 10차: 세로 고정. 위 74%(하단 바가 185px 보다 커지지 않게) = 3D 조리대
-    const bar = Math.min(185, this.sm.h * 0.26);
+    // v16: 하단 바는 120px(+안전 영역) 하드락, 화면의 18% 를 넘지 않는다. 실제 렌더 높이를 그대로 쓴다
+    const side = this.q('.wb-side');
+    const bar = Math.min(side?.offsetHeight || 120, this.sm.h * 0.18);
     this.sm.setViewRect({ x0: 0, x1: 1, y0: 0, y1: 1 - bar / this.sm.h });
   }
 

@@ -825,7 +825,7 @@ export class PizzaBench extends BoardBench {
       move(e, ndc) {
         if (anim || finishing) return;
         const p = ctx.planeHit(ndc, P.y + yTop);
-        if (p) wheel.position.set(p.x, P.y + yTop - 0.002 + (down ? 0 : 0.03), p.z);
+        if (p) wheel.position.set(p.x, P.y + yTop + 0.001 + (down ? 0 : 0.03), p.z);
       },
       up(e, ndc) {
         if (anim || finishing || !down) return;
@@ -871,7 +871,7 @@ export class PizzaBench extends BoardBench {
         const l = anim.l;
         const dir = V(Math.cos(-l.a), 0, Math.sin(-l.a));
         const s = -R * 1.05 + 2.1 * R * k;
-        wheel.position.set(P.x + dir.x * s, P.y + yTop - 0.004, P.z + dir.z * s);
+        wheel.position.set(P.x + dir.x * s, P.y + yTop + 0.001, P.z + dir.z * s);
         wheel.rotation.y = l.a;
         wheel.userData.disc.rotation.y -= dt * 40;
         if (Math.random() < 0.5) ctx.sound.roll?.();

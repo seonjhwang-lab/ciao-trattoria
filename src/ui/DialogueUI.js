@@ -4,6 +4,7 @@ import { WEATHER_NAME } from '../core/DialogueEngine.js';
 import { icon } from './icons.js';
 import { oneLine } from './svgText.js';
 import { bindTap } from './Tap.js';
+import { clampLine } from './clampLine.js';
 
 // 9차 메뉴판 카테고리 (조리대 = 카테고리)
 const CATEGORIES = [
@@ -128,28 +129,39 @@ export class DialogueUI {
         <div class="dlg-choices"></div>
       </div>`;
     root.appendChild(this.el);
-    // 9차: 카테고리 탭 메뉴판 (크림 종이 + 다크 잉크 테두리)
+    // v16 메뉴판: 스크롤 없는 한 화면 고정 그리드 + pointerdown 즉시 실행 (click · 스크롤 · 잠금 조건 없음)
     this.board = document.createElement('div');
-    this.board.className = 'menu-board hidden';
+    this.board.id = 'menu-board';
+    this.board.className = 'menu-board v16 hidden';
     this.board.innerHTML = `
-      <div class="mb-card" role="dialog" aria-label="메뉴판">
-        <div class="mb-head"><h2>Il Menù<small>오늘의 메뉴판</small></h2><button class="mb-x" aria-label="메뉴판 닫기">${icon('close')}</button></div>
-        <div class="mb-known"></div>
-        <div class="mb-tabs" role="tablist"></div>
-        <div class="mb-grid"></div>
+      <div class="mb16-card" role="dialog" aria-label="메뉴판">
+        <div class="mb16-head"><b>Il Menù</b><small>오늘의 메뉴판</small><button type="button" class="mb16-x" aria-label="메뉴판 닫기">${icon('close')}</button></div>
+        <div class="mb16-known"></div>
+        <div class="mb16-tabs" role="tablist"></div>
+        <div class="mb16-list menu-list"></div>
       </div>`;
     root.appendChild(this.board);
-    bindTap(this.board.querySelector('.mb-x'), () => {
+    // 손가락이 닿는 즉시 실행. 키보드(Enter/Space)로 누른 click(detail 0)만 같은 동작으로 받는다
+    this.press = (el, fn) => {
+      el.onpointerdown = (e) => {
+        if (e.button > 0) return;
+        e.preventDefault();
+        fn(e);
+      };
+      el.onclick = (e) => e.detail === 0 && fn(e);
+    };
+    this.press(this.board.querySelector('.mb16-x'), () => {
       this.sound.tap();
       this.closeBoard();
       this.main();
     });
-    this.board.addEventListener('click', (e) => {
-      if (e.target === this.board) {
-        this.closeBoard();
-        this.main();
-      }
-    });
+    // 바깥(어두운 배경)을 눌러도 즉시 닫힘
+    this.board.onpointerdown = (e) => {
+      if (e.target !== this.board) return;
+      e.preventDefault();
+      this.closeBoard();
+      this.main();
+    };
     this.q = (s) => this.el.querySelector(s);
     bindTap(this.q('.dlg-x'), () => this.close(true));
     this.q('.dlg-text').addEventListener('click', () => this.skip());
@@ -194,6 +206,7 @@ export class DialogueUI {
   }
 
   say(text, then, speed = 24) {
+    text = clampLine(text); // v16: 28자 이내 1문장
     clearInterval(this.typer);
     const el = this.q('.dlg-text');
     el.textContent = '';
@@ -266,64 +279,73 @@ export class DialogueUI {
 
   openBoard() {
     const known = new Set(this.engine.revealedTags(this.c));
-    const avail = new Set(this.available.map((r) => r.id));
     const cats = CATEGORIES.map((c) => ({ ...c, list: this.available.filter((r) => r.station === c.id) }));
-    const kb = this.board.querySelector('.mb-known');
+    const kb = this.board.querySelector('.mb16-known');
     kb.innerHTML = known.size ? `<span>${esc(this.c.persona.name)} 님 취향</span>${[...known].map((x) => `<i>#${esc(registry.tags[x] ?? x)}</i>`).join('')}` : '';
-    const tabs = this.board.querySelector('.mb-tabs');
+    const tabs = this.board.querySelector('.mb16-tabs');
+    const list = this.board.querySelector('.mb16-list');
     tabs.innerHTML = cats
-      .map((c) => `<button type="button" class="mb-tab${c.list.length ? '' : ' soon'}" role="tab" data-cat="${c.id}" aria-label="${c.name}">${icon(c.ic)}<span class="mt-name">${c.short}</span><span class="mt-it">${c.it}</span></button>`)
+      .map((c) => `<button type="button" class="mb16-tab${c.list.length ? '' : ' soon'}" role="tab" data-cat="${c.id}" aria-label="${c.name}">${icon(c.ic)}<span>${c.short}</span></button>`)
       .join('');
     const show = (id) => {
       this.cat = id;
-      tabs.querySelectorAll('.mb-tab').forEach((b) => {
-        b.classList.toggle('on', b.dataset.cat === id);
-        b.setAttribute('aria-selected', b.dataset.cat === id ? 'true' : 'false');
-      });
+      for (const b of tabs.children) {
+        const on = b.dataset.cat === id;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      }
       const cat = cats.find((c) => c.id === id);
-      const grid = this.board.querySelector('.mb-grid');
-      grid.innerHTML = '';
-      grid.scrollTop = 0;
+      list.textContent = '';
       if (!cat?.list.length) {
-        grid.innerHTML = `<p class="mb-empty">이 코너는 ‘꾸미기 &amp; 설비 해금’에서 열 수 있어요</p>`;
+        list.innerHTML = `<p class="mb16-empty">이 코너는 ‘꾸미기 &amp; 설비 해금’에서 열 수 있어요</p>`;
         return;
       }
-      for (const r of cat.list) {
+      for (const r of cat.list.slice(0, 4)) {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'mb-item';
-        const hype = Array.isArray(r.hype) ? r.hype[0] : r.hype;
+        b.className = 'mb16-item';
+        const hit = r.tags.some((x) => known.has(x));
         b.setAttribute('aria-label', `${r.name} ${r.price}원 주문`);
         b.innerHTML = `
-          <span class="mb-row"><b>${esc(r.name)}</b><span class="mb-price">₩${(r.price ?? 0).toLocaleString('ko-KR')}</span></span>
-          ${r.it ? `<em>${esc(r.it)}</em>` : ''}
-          ${hype ? `<q>${esc(oneLine(hype, 30))}</q>` : ''}
-          <span class="mb-tags">${r.tags.map((x) => `<span class="${known.has(x) ? 'hit' : ''}">#${esc(registry.tags[x] ?? x)}</span>`).join('')}</span>
-          <span class="mb-ic">${icon(r.icon)}</span>`;
-        // 원클릭 주문: 카드를 한 번 누르면 확인 없이 바로 주문 접수 (표준 click)
-        b.addEventListener('click', () => {
+          <span class="mb16-ic">${icon(r.icon)}</span>
+          <span class="mb16-txt">
+            <span class="mb16-row"><b>${esc(r.name)}</b>${hit ? '<i class="mb16-hit">취향</i>' : ''}<span class="mb16-price">₩${(r.price ?? 0).toLocaleString('ko-KR')}</span></span>
+            <span class="mb16-desc">${esc(r.desc ?? r.it ?? '')}</span>
+          </span>`;
+        // 누르는 즉시: 메뉴판 · 대화창이 함께 닫히고 이 메뉴로 주문 확정
+        this.press(b, () => {
           this.sound.tap();
           this.closeBoard();
           this.orderNow(r);
         });
-        grid.appendChild(b);
+        list.appendChild(b);
       }
     };
-    // v15: 탭에는 잠금 조건이 없다 — 손님 취향 · 이전 상태와 무관하게 누르면 바로 그 카테고리로
-    tabs.querySelectorAll('.mb-tab').forEach((b) =>
-      b.addEventListener('click', () => {
+    for (const b of tabs.children)
+      this.press(b, () => {
         this.sound.tap();
         show(b.dataset.cat);
-      }),
-    );
+      });
     const first = cats.find((c) => c.id === this.cat && c.list.length) ?? cats.find((c) => c.list.length);
-    show(first?.id ?? 'pasta');
+    show(first?.id ?? 'espresso');
     this.board.classList.remove('hidden');
-    void avail;
+    document.body.classList.add('mb-open');
   }
 
   closeBoard() {
+    if (this.board.classList.contains('hidden')) return;
     this.board.classList.add('hidden');
+    document.body.classList.remove('mb-open');
+    // 메뉴판이 pointerdown 에서 닫힌 직후, 같은 손가락의 click 이 아래 버튼 · 매장에 떨어지지 않게 한 번 흡수
+    const until = performance.now() + 600;
+    const eat = (e) => {
+      if (performance.now() > until) return window.removeEventListener('click', eat, true);
+      e.preventDefault();
+      e.stopPropagation();
+      window.removeEventListener('click', eat, true);
+    };
+    window.addEventListener('click', eat, true);
+    setTimeout(() => window.removeEventListener('click', eat, true), 650);
   }
 
   // 추천 = 곧바로 주문 확정. 취향 적중이면 손님이 기뻐하는 연출(onMatch)과 함께, 대사는 손님 말풍선으로

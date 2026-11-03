@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getFoodTopY, keepAbove } from './toolClear.js';
 import { kit } from '../core/Kit.js';
 import { BoardBench } from './BoardBench.js';
 import { layFlat } from './Ingredient3D.js';
@@ -172,6 +173,10 @@ export class SaladBench extends BoardBench {
     let turnX = 0;
     let done = false;
     const y = Y0 + DEPTH + 0.03;
+    // v16: 볼 안 샐러드의 실제 최고점 + 8cm 위에서만 병이 움직인다
+    const bowlW = self.stage.localToWorld(BOWL.clone());
+    const foodTop = Math.max(getFoodTopY(self.stage, { exclude: [self.bottle], center: bowlW, radius: BR * 1.15 }), y);
+    const NOZZLE_Y = foodTop + 0.08;
     const refresh = () => ctx.ui.meter(`<div class="wb-chips"><span>지그재그 ${rev} / 4</span></div>`);
     refresh();
     const finish = () => {
@@ -194,10 +199,11 @@ export class SaladBench extends BoardBench {
       },
       move(e, ndc) {
         if (done) return;
-        const w = ctx.planeHit(ndc, y + 0.12);
+        const w = ctx.planeHit(ndc, NOZZLE_Y + 0.05);
         if (w) {
           self.bottle.position.copy(w);
           self.bottle.quaternion.setFromEuler(new THREE.Euler(0, 0, path ? 2.3 : 0.4));
+          keepAbove(self.bottle, NOZZLE_Y);
         }
         if (!path) return;
         const p = ctx.planeHit(ndc, y);
@@ -230,6 +236,7 @@ export class SaladBench extends BoardBench {
         path = null;
         ctx.sound.pourStop();
         self.bottle.quaternion.setFromEuler(new THREE.Euler(0, 0, 0.4));
+        keepAbove(self.bottle, NOZZLE_Y);
       },
       update() {},
       destroy() {

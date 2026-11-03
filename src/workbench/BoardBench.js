@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getFoodTopY, keepAbove, lowestPoint } from './toolClear.js';
 import { kit } from '../core/Kit.js';
 import { SliceableItem, layFlat, buildPrepped, lobeTop, radiusAt } from './Ingredient3D.js';
 import { endgrainTexture, traceLoaf } from './benchTextures.js';
@@ -1215,6 +1216,26 @@ export class BoardBench {
     const home = bottle.position.clone();
     const mat = kit.mat(honey ? '#c98a1f' : '#a8a02a', { rough: 0.05, opacity: 0.82, env: 1.4 });
     const y = this.top + 0.004;
+    // v16: 접시 위 음식의 실제 최고점. 병 노즐 끝은 항상 그보다 8cm 위 허공, 줄기만 표면(+3mm)에 내려앉는다
+    const foodTop = getFoodTopY(self.dish);
+    const NOZZLE_Y = foodTop + 0.08;
+    const surfY = y; // 줄기가 닿는 곳 = 실제 빵 · 재료 윗면(+3~4mm)
+    const stream = kit.cyl(0.0016, 0.0016, 1, mat, { seg: 6 });
+    stream.visible = false;
+    stream.castShadow = false;
+    this.stage.add(stream);
+    this.drizzleStream = stream;
+    const placeStream = (pDish) => {
+      const nz = lowestPoint(bottle);
+      if (!nz || !pDish) return (stream.visible = false);
+      const a = this.stage.worldToLocal(nz.clone());
+      const b = this.stage.worldToLocal(self.dish.localToWorld(pDish.clone().setY(surfY)));
+      const len = a.distanceTo(b);
+      stream.visible = len > 0.01;
+      stream.position.copy(a).add(b).multiplyScalar(0.5);
+      stream.scale.set(1, len, 1);
+      stream.quaternion.setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize());
+    };
     ctx.view(V(PLATE.x, Y0 + 0.05, PLATE.z), 0.36, 1.15);
     ctx.ui.step(honey ? '꿀 드리즐' : '엑스트라 버진 올리브오일', '접시 위를 지그재그로');
     let path = null;
@@ -1228,6 +1249,7 @@ export class BoardBench {
       const ratio = total ? inside / total : 0;
       const score = Math.round(clamp(30 + reversals * 14, 0, 100) * Math.sqrt(ratio || 0.3));
       ctx.ui.pop(`지그재그 ${reversals}번 · ${score}점`, score >= 70);
+      stream.visible = false;
       this.tw.to(bottle, { pos: home, quat: new THREE.Quaternion(), dur: 0.4 });
       ctx.sound.pourStop();
       ctx.done(score, '드리즐');
@@ -1242,15 +1264,17 @@ export class BoardBench {
         ctx.sound.pourStart();
       },
       move(e, ndc) {
-        const w = ctx.planeHit(ndc, Y0 + y + 0.12);
+        const w = ctx.planeHit(ndc, NOZZLE_Y + 0.05);
         if (w) {
           bottle.position.copy(w);
           bottle.quaternion.setFromEuler(new THREE.Euler(0, 0, path ? 2.2 : 0.4));
+          keepAbove(bottle, NOZZLE_Y); // 기울어진 병 몸체 · 노즐이 빵을 뚫지 않게
         }
-        if (!path) return;
+        if (!path) return (stream.visible = false);
         const p = ctx.planeHit(ndc, Y0 + y);
         if (!p) return;
         p.sub(self.dish.position);
+        placeStream(p);
         const q = path[path.length - 1];
         const d = p.distanceTo(q);
         if (d < 0.006) return;
@@ -1272,12 +1296,15 @@ export class BoardBench {
       },
       up() {
         path = null;
+        stream.visible = false;
         ctx.sound.pourStop();
         bottle.quaternion.setFromEuler(new THREE.Euler(0, 0, 0.4));
+        keepAbove(bottle, NOZZLE_Y);
       },
       update() {},
       destroy() {
         ctx.sound.pourStop();
+        stream.visible = false;
         bottle.position.copy(home);
         bottle.quaternion.identity();
       },
@@ -1292,6 +1319,7 @@ export class BoardBench {
     // v13: 뒤집힌 페퍼밀은 원점에서 아래로 약 0.2m (노즐) → 노즐이 윗면 + 0.10m 이상
     const topSurfaceY = Y0 + this.top;
     const millAt = V(PLATE.x, topSurfaceY + 0.1 + 0.2, PLATE.z);
+    const millMinY = Math.max(getFoodTopY(this.dish), topSurfaceY) + 0.1; // v16: 노즐 끝 ≥ 음식 최고점 + 10cm
     this.tw.to(this.mill, { pos: millAt, quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI, 0, 0.1)), dur: 0.45 });
     ctx.view(V(PLATE.x, Y0 + this.top + 0.1, PLATE.z), 0.5, 0.62);
     ctx.ui.step('통후추 갈기', '빙글빙글 3바퀴 돌려요');
@@ -1326,6 +1354,7 @@ export class BoardBench {
         angle = a;
         acc += Math.abs(d);
         self.mill.rotation.y += d;
+        keepAbove(self.mill, millMinY);
         turns = acc / (Math.PI * 2);
         while (emitted < acc / 0.35) {
           emitted++;

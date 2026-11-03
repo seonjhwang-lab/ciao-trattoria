@@ -9,6 +9,7 @@ import { gradeFor, payment } from './Grading.js';
 import { GuestGenerator } from './GuestGenerator.js';
 import { icon } from '../ui/icons.js';
 import { releaseFace } from './FaceTextureBuilder.js';
+import { clampLine } from '../ui/clampLine.js';
 import { reactionsOn } from './Settings.js';
 import { getProgress, GUESTS_PER_DAY, Progress, LEVEL_NAME } from './Progress.js';
 
@@ -357,7 +358,7 @@ export class CafeAI {
 
   // 손님 말풍선에 대사를 잠깐 띄운다 (주문 직후 반응 등)
   say(c, text, seconds = 3) {
-    c.sayText = text;
+    c.sayText = clampLine(text); // v16: 말풍선도 28자 이내 1문장
     c.sayT = seconds;
   }
 
@@ -392,7 +393,7 @@ export class CafeAI {
     // 미식 품평: 메뉴별 맛 표현 (S/A 는 재료 디테일을 짚는 극찬)
     const critique = tasteLine(c.order.recipe, G.g, c.id);
     const line = review.special ? review.line : critique;
-    c.bubble.set(`<b class="g g-${G.g}">${G.g}</b><span>${critique}</span>`, `react react-${G.g}${review.special ? ' special' : ''}`);
+    c.bubble.set(`<b class="g g-${G.g}">${G.g}</b><span>${clampLine(critique)}</span>`, `react react-${G.g}${review.special ? ' special' : ''}`);
     if (G.fx === 'gold') {
       this.effects.goldBurst(head);
       this.effects.hearts(head.clone().add(new THREE.Vector3(0.2, 0.1, 0)), 5);

@@ -1,6 +1,7 @@
 import { icon } from './icons.js';
 import { portrait } from './DialogueUI.js';
 import { setHidden } from './hiddenGuard.js';
+import { clampLine } from './clampLine.js';
 import { svgBanner, FONT } from './svgText.js';
 
 // 인트로 타이틀 (IntroModal): 뒤에서는 카메라가 밝은 비스트로 카운터를 천천히 패닝한다
@@ -134,8 +135,7 @@ export class TastingCard {
     el.className = `taste-card g-${grade}`;
     el.innerHTML = `
       <div class="tc-head"><img alt="" width="40" height="40" src="${portrait(p)}"/><div><small>${p.name} 님의 첫 입 품평</small><b>${recipe.name}</b></div><i class="tc-g">${grade}</i></div>
-      <p class="tc-quote">“${critique}”</p>
-      ${review && review !== critique ? `<p class="tc-review">${review}</p>` : ''}
+      <p class="tc-quote">“${clampLine(critique)}”</p>
       <div class="tc-pay">${icon('coin')}<b>+${pay.toLocaleString()}원</b>${tip > 0 ? `<span class="tc-tip">${icon('sparkle')}넉넉한 팁 +${tip.toLocaleString()}원</span>` : ''}${matched ? `<span class="tc-tip heart">${icon('heart')}취향 저격</span>` : ''}</div>
       <div class="tc-sparkles">${Array.from({ length: grade === 'S' ? 14 : grade === 'A' ? 9 : 0 }, (_, i) => `<i style="--a:${(i * 360) / 14}deg;--d:${(i % 4) * 0.08}s">${icon(i % 3 ? 'sparkle' : 'heart')}</i>`).join('')}</div>`;
     void el.offsetWidth;
