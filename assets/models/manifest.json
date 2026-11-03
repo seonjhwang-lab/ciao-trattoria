@@ -1,0 +1,20 @@
+{
+  "license": "CC0 1.0 (Kenney)",
+  "files": [
+    "kenney/books.glb",
+    "kenney/cardboardBoxClosed.glb",
+    "kenney/kitchenBlender.glb",
+    "kenney/lampRoundTable.glb",
+    "kenney/loungeChair.glb",
+    "kenney/loungeSofa.glb",
+    "kenney/plantSmall1.glb",
+    "kenney/plantSmall2.glb",
+    "kenney/plantSmall3.glb",
+    "kenney/pottedPlant.glb",
+    "kenney/radio.glb",
+    "kenney/table.glb",
+    "kenney/tableCoffee.glb",
+    "kenney/tableRound.glb",
+    "kenney/toaster.glb"
+  ]
+}
