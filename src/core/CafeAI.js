@@ -19,7 +19,8 @@ import { getProgress, GUESTS_PER_DAY, Progress, LEVEL_NAME } from './Progress.js
 // v14: 현관 마당 없음. 출입문은 왼쪽(서쪽) 높은 벽에 있고, 손님은 그 벽 뒤에서 나타나 문턱을 넘어 들어온다
 const SILL_X = -GRID_W / 2 - 0.05; // 문턱 (벽 두께 가운데쯤)
 const OUT_X = -GRID_W / 2 - 0.6; // 벽 바깥 — 높은 벽에 가려 카메라에 보이지 않는다
-const HALF = GRID_W / 2 - 0.14;
+const HALF_X = GRID_W / 2 - 0.14;
+const HALF_Z = GRID_D / 2 - 0.14; // v19: 매장은 7x8 — 예전엔 z 도 7m 기준이라 키보드 이동으로 맨 앞줄(z 7)에 못 갔다
 const EAT_TIME = 10;
 // v12 먹방: 포크/컵을 들어 접시 → 입으로 반복하며 오물오물 먹는 시간 / 다 먹고 박수 · 품평 · 팁
 // v15: 리액션 OFF 면 짧게 (게임이 막힘없이)
@@ -150,7 +151,11 @@ export class CafeAI {
   }
 
   freeSeats() {
+    // v19: 앞 손님이 아직 의자를 밀고 일어나는 중(scootOut~stepOut)이거나 의자가 제자리로 돌아가는 중이면 비지 않은 자리
     const taken = new Set(this.customers.filter((c) => c.seat).map((c) => c.seat.chair.id));
+    for (const c of this.customers) if (c.leaveSeat && c.state !== 'walkOut') taken.add(c.leaveSeat.chair.id);
+    for (const a of this.chairAnims ?? []) taken.add(a.seat.chair.id);
+    for (const it of this.furniture.items.values()) if (it.pulled > 0.005) taken.add(it.id);
     return this.furniture.seats().filter((s) => !taken.has(s.chair.id));
   }
 
@@ -186,15 +191,88 @@ export class CafeAI {
       if (!this.walkable(...nt)) continue;
       const path = from ? findPath(from, nt, this.walkable) : [nt];
       if (!path) continue;
-      if (!best || path.length < best.path.length) best = { ...o, tile: nt, path };
+      // v19: 옆으로 다가가는 길을 우선 (뒤로 가면 빼낸 의자를 돌아 들어가야 해서 3칸까지는 옆을 택한다)
+      const cost = path.length + (o.side ? 0 : 3);
+      if (!best || cost < best.cost) best = { ...o, tile: nt, path, cost };
     }
     if (!best) return null;
     // 옆이면: 의자 옆 0.55m · 테이블 쪽으로 0.1m (의자를 뒤로 빼도 부딪히지 않는 자리)
     // 뒤면: 의자 뒤 0.62m · 옆으로 0.4m (빼낸 의자를 비켜 선다)
+    // v19: 의자 폭이 넓으면(벨벳 라운지) 그만큼 더 비켜 선다 — 몸 반지름 0.14 + 여유 4cm
+    const pl = this.plan(seat);
+    const side = Math.max(0.55, pl.halfW + 0.18);
     const pt = best.side
-      ? c.clone().add(new THREE.Vector3(best.d[0] * 0.55 + fx * 0.1, 0, best.d[1] * 0.55 + fz * 0.1))
-      : c.clone().add(new THREE.Vector3(-fx * 0.62 + px * 0.4, 0, -fz * 0.62 + pz * 0.4));
-    return { ...best, point: pt };
+      ? c.clone().add(new THREE.Vector3(best.d[0] * side + fx * pl.s, 0, best.d[1] * side + fz * pl.s)) // 서는 자리와 같은 깊이 → 옆으로만 들어선다
+      : c.clone().add(new THREE.Vector3(-fx * 0.62 + px * Math.max(0.4, pl.halfW + 0.18), 0, -fz * 0.62 + pz * Math.max(0.4, pl.halfW + 0.18)));
+    // 뒤에서 왔다면 빼낸 의자를 옆으로 돌아 들어가는 중간 지점 (의자를 대각선으로 뚫지 않게)
+    const lat = Math.max(0.4, pl.halfW + 0.18);
+    const via = best.side ? null : c.clone().add(new THREE.Vector3(fx * pl.s + px * lat, 0, fz * pl.s + pz * lat));
+    return { ...best, point: pt, via };
+  }
+
+  // v19: 의자를 얼마나 뺄지(k) · 손님이 의자와 테이블 사이 어디에 설지(s)를 실제 메쉬 치수로 정한다.
+  //  - k: 기본 0.36m. 의자 뒤에 다른 테이블 · 가구 · 벽이 있으면 3cm 앞에서 멈춘다 (벨벳 의자 (3,4) 가 옆 테이블에 박히던 문제)
+  //  - s: 빼낸 의자 앞면에서 몸(반지름 0.14) + 3cm 떨어진 자리 (의자가 깊을수록 테이블 쪽으로)
+  plan(seat) {
+    const ch = seat.chair;
+    if (!ch.plan || ch.plan.obj !== ch.object) ch.plan = this.pullPlan(seat);
+    return ch.plan;
+  }
+
+  pullPlan(seat) {
+    const [fx, fz] = seat.facing;
+    const c = tileCenter(...seat.tile);
+    const k0 = seat.chair.pulled ?? 0; // 지금 빠져 있는 만큼 되돌려 잰다
+    const boxesOf = (root, shift = 0) => {
+      const out = [];
+      root.updateMatrixWorld(true);
+      root.traverse((m) => {
+        if (!m.isMesh || m.userData.hitbox || m.material?.visible === false) return;
+        const g = m.geometry;
+        if (!g) return;
+        if (!g.boundingBox) g.computeBoundingBox();
+        const b = g.boundingBox.clone().applyMatrix4(m.matrixWorld);
+        if (b.max.y < 0.04) return;
+        if (shift) b.translate(new THREE.Vector3(fx * shift, 0, fz * shift));
+        out.push(b);
+      });
+      return out;
+    };
+    const chair = boxesOf(seat.chair.object, k0);
+    let front = -Infinity;
+    let back = -Infinity;
+    let halfW = 0;
+    for (const b of chair) {
+      const lo = (b.min.x - c.x) * fx + (b.min.z - c.z) * fz;
+      const hi = (b.max.x - c.x) * fx + (b.max.z - c.z) * fz;
+      front = Math.max(front, lo, hi);
+      back = Math.max(back, -lo, -hi);
+      const w1 = Math.abs((b.min.x - c.x) * fz) + Math.abs((b.min.z - c.z) * fx);
+      const w2 = Math.abs((b.max.x - c.x) * fz) + Math.abs((b.max.z - c.z) * fx);
+      halfW = Math.max(halfW, w1, w2);
+    }
+    const others = [];
+    for (const it of this.furniture.items.values()) {
+      if (it === seat.chair || it === seat.table || it.def.layer === 'floor' || !it.object) continue;
+      const o = it.object.position;
+      if (Math.abs(o.x - c.x) > 2.2 || Math.abs(o.z - c.z) > 2.2) continue;
+      others.push(...boxesOf(it.object));
+    }
+    const wx = GRID_W / 2 - 0.03;
+    const wz = GRID_D / 2 - 0.03;
+    let k = 0;
+    for (let t = 0.01; t <= 0.36 + 1e-6; t += 0.01) {
+      const mv = new THREE.Vector3(-fx * (t + 0.03), 0, -fz * (t + 0.03));
+      const hit = chair.some((b) => {
+        const s = b.clone().translate(mv);
+        if (s.min.x < -wx || s.max.x > wx || s.min.z < -wz || s.max.z > wz) return true;
+        return others.some((o) => s.intersectsBox(o));
+      });
+      if (hit) break;
+      k = t;
+    }
+    const s = Math.max(0.1, front - k + 0.17);
+    return { k, s, front, back, halfW, obj: seat.chair.object };
   }
 
   // 의자 3D 를 뒤(테이블 반대쪽)로 k 미터 뺀 위치로
@@ -234,9 +312,10 @@ export class CafeAI {
 
   // 빼낸 의자와 테이블 사이, 앉기 직전에 서는 자리
   standSpot(seat) {
+    const d = this.plan(seat).s;
     const v = tileCenter(...seat.tile);
-    v.x += seat.facing[0] * 0.1;
-    v.z += seat.facing[1] * 0.1;
+    v.x += seat.facing[0] * d;
+    v.z += seat.facing[1] * d;
     v.y = 0;
     return v;
   }
@@ -275,6 +354,7 @@ export class CafeAI {
     this.state.presentNames = this.customers.map((c) => c.persona.name);
     const seats = this.freeSeats().sort(() => Math.random() - 0.5);
     for (const seat of seats) {
+      seat.chair.plan = null; // 가구 배치가 바뀌었을 수 있으니 매번 새로 잰다
       const ap = this.seatApproach(seat, DOOR_TILE);
       if (!ap) continue;
       const tiles = ap.path;
@@ -323,7 +403,7 @@ export class CafeAI {
         const back = this.standSpot(c.seat).sub(new THREE.Vector3(c.seat.facing[0] * 0.61, 0, c.seat.facing[1] * 0.61));
         a.faceTo(back, dt);
         const u = Math.min(1, Math.max(0, (c.t - 0.12) / 0.5));
-        this.setChairOffset(c.seat, 0.36 * u * u * (3 - 2 * u));
+        this.setChairOffset(c.seat, this.plan(c.seat).k * u * u * (3 - 2 * u));
         if (c.t >= 0.7) {
           c.state = 'stepIn';
           c.t = 0;
@@ -332,7 +412,20 @@ export class CafeAI {
         break;
       }
       case 'stepIn': {
-        // 빼낸 의자와 테이블 사이로 들어서며 테이블 쪽으로 돌아선다
+        // 빼낸 의자와 테이블 사이로 들어서며 테이블 쪽으로 돌아선다 (뒤에서 왔으면 의자 옆을 돌아서)
+        const via = c.approach?.via;
+        if (via && !c.viaDone) {
+          const u1 = Math.min(1, c.t / 0.5);
+          a.root.position.lerpVectors(c.from, via, u1 * u1 * (3 - 2 * u1));
+          a.faceTo(via.clone().add(via.clone().sub(c.from)), dt);
+          a.manual = 0.6;
+          if (u1 >= 1) {
+            c.viaDone = true;
+            c.t = 0;
+            c.from = via.clone();
+          }
+          break;
+        }
         const to = this.standSpot(c.seat);
         const u = Math.min(1, c.t / 0.55);
         a.root.position.lerpVectors(c.from, to, u * u * (3 - 2 * u));
@@ -348,7 +441,7 @@ export class CafeAI {
       }
       case 'sitDown': {
         // 빼 둔 의자 위로 천천히 앉는다
-        const { pos, yaw } = this.seatPoseAt(c.seat, 0.36);
+        const { pos, yaw } = this.seatPoseAt(c.seat, this.plan(c.seat).k);
         const u = Math.min(1, c.t / 0.5);
         a.root.position.lerpVectors(c.from, pos, u * u * (3 - 2 * u));
         a.face(yaw, dt, 14);
@@ -363,7 +456,7 @@ export class CafeAI {
       case 'scootIn': {
         // 앉은 채로 의자를 테이블 쪽으로 당겨 붙인다 (손님과 의자가 함께)
         const u = Math.min(1, c.t / 0.55);
-        const k = 0.36 * (1 - u * u * (3 - 2 * u));
+        const k = this.plan(c.seat).k * (1 - u * u * (3 - 2 * u));
         this.setChairOffset(c.seat, k);
         const { pos, yaw } = this.seatPoseAt(c.seat, k);
         a.root.position.copy(pos);
@@ -434,7 +527,7 @@ export class CafeAI {
         // 앉은 채로 의자를 뒤로 밀어 일어날 공간을 만든다
         const s = c.leaveSeat;
         const u = Math.min(1, c.t / 0.5);
-        const k = 0.36 * u * u * (3 - 2 * u);
+        const k = this.plan(s).k * u * u * (3 - 2 * u);
         this.setChairOffset(s, k);
         const { pos } = this.seatPoseAt(s, k);
         a.root.position.copy(pos);
@@ -464,6 +557,20 @@ export class CafeAI {
         // 의자 옆으로 비켜 나와서, 의자 등받이를 잡고 다시 넣어 둔다
         const s = c.leaveSeat;
         const ap = c.approach ?? this.seatApproach(s, null);
+        if (ap?.via && !c.viaOut) {
+          // 뒤쪽 칸으로 나갈 때는 먼저 의자 옆으로 비켜선다
+          const u1 = Math.min(1, c.t / 0.45);
+          a.root.position.lerpVectors(c.from, ap.via, u1 * u1 * (3 - 2 * u1));
+          a.faceTo(ap.via.clone().add(ap.via.clone().sub(c.from)), dt);
+          a.pose = 'idle';
+          a.manual = 0.6;
+          if (u1 >= 1) {
+            c.viaOut = true;
+            c.t = 0;
+            c.from = ap.via.clone();
+          }
+          break;
+        }
         const to = ap?.point ?? c.from;
         const u = Math.min(1, c.t / 0.55);
         a.root.position.lerpVectors(c.from, to, u * u * (3 - 2 * u));
@@ -722,7 +829,7 @@ export class CafeAI {
     ]) {
       const px = x + ox;
       const pz = z + oz;
-      if (Math.abs(px) > HALF || Math.abs(pz) > HALF) return true;
+      if (Math.abs(px) > HALF_X || Math.abs(pz) > HALF_Z) return true;
       if (!this.grid.isWalkable(...worldToTile(px, pz))) return true;
       for (const c of this.customers) {
         if (!c.seat || c.state === 'walkIn') continue;
@@ -789,15 +896,18 @@ export class CafeAI {
   }
 
   // 막힌 칸이면 가장 가까운 걸을 수 있는 칸
+  // v19: 가구로 둘러싸여 셰프가 갈 수 없는 빈 칸(예: 의자 · 테이블 · 패스 카운터 사이 (3,3))은 고르지 않는다
   nearestWalkable([tx, tz]) {
-    if (this.grid.isWalkable(tx, tz)) return [tx, tz];
+    const from = this.chefTile();
+    const reach = (t) => this.grid.isWalkable(...t) && !!findPath(from, t, this.walkable);
+    if (reach([tx, tz])) return [tx, tz];
     for (let r = 1; r < 4; r++) {
       let best = null;
       for (let dx = -r; dx <= r; dx++)
         for (let dz = -r; dz <= r; dz++) {
           if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
           const t = [tx + dx, tz + dz];
-          if (!this.grid.isWalkable(...t)) continue;
+          if (!reach(t)) continue;
           const d = Math.hypot(dx, dz);
           if (!best || d < best.d) best = { t, d };
         }

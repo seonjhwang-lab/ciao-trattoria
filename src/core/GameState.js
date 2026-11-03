@@ -5,7 +5,7 @@ const WEATHERS = ['clear', 'clear', 'cloudy', 'rain', 'chilly'];
 export const DAY_START = 7 * 60;
 export const DAY_END = 22 * 60;
 // 7차 개편: 10x10 비스트로 + 파스타/화덕/샐러드 스테이션. 이전 배치는 새 기본 매장으로 바꾼다
-export const LAYOUT_VER = 12; // v14: 7x8 매장 · 왼쪽 벽 출입문 // v12: 6x6 컴팩트 트라토리아 + 통합 마스터 조리대
+export const LAYOUT_VER = 13; // v19: 3번째 테이블 (5,6) → (6,6) // v14: 7x8 매장 · 왼쪽 벽 출입문 // v12: 6x6 컴팩트 트라토리아 + 통합 마스터 조리대
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 

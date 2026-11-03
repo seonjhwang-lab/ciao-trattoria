@@ -10,7 +10,7 @@ import { buildForno, updateForno } from '../core/Forno.js';
 // 화덕 피자 워크벤치: 도우 스트레칭 → 국자 소스 스월링 → 모짜렐라·토마토 썰기(쓰러지는 단면) → 토핑 올리기 → 화덕 굽기 (→ 가니쉬)
 const Y0 = 0.9;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const D = V(0.04, Y0 + 0.012, 0.2); // 원목 반죽판 위 도우 자리
+const D = V(0.04, Y0 + 0.012, 0.24); // 원목 반죽판 위 도우 자리 (v19: 4cm 앞으로 — 반죽판 · 필 끝이 화덕 입구 돌턱을 파고들었다)
 const OVEN = V(0.2, Y0, -0.36); // 나폴리 장작 화덕 (테이블 뒤 석재 받침 위, 입구는 +z)
 const SECT = 16;
 const lin = (h) => new THREE.Color(h).convertSRGBToLinear();
@@ -99,8 +99,9 @@ function metalPeel() {
     }
   // 목 부분 + 손잡이
   g.add(k.at(k.box(0.05, 0.006, 0.07, alu), 0, 0.004, 0.18));
-  g.add(k.at(k.cyl(0.013, 0.013, 0.42, k.wood('walnut'), { seg: 14 }), 0, 0.012, 0.42, Math.PI / 2, 0, 0));
-  g.add(k.at(k.cyl(0.016, 0.016, 0.02, k.metal('steel'), { seg: 14 }), 0, 0.012, 0.215, Math.PI / 2, 0, 0));
+  // v19: 손잡이 · 칼라가 날 바닥보다 내려가지 않게 (날을 바닥에 눕히면 칼라가 4mm 파고들었다)
+  g.add(k.at(k.cyl(0.013, 0.013, 0.42, k.wood('walnut'), { seg: 14 }), 0, 0.0135, 0.42, Math.PI / 2, 0, 0));
+  g.add(k.at(k.cyl(0.016, 0.016, 0.02, k.metal('steel'), { seg: 14 }), 0, 0.0165, 0.215, Math.PI / 2, 0, 0));
   return g;
 }
 
@@ -151,10 +152,18 @@ export class PizzaBench extends BoardBench {
     this.prepped = {};
     this.placed = [];
     // 흰 마블 작업대 + 덧가루
-    g.add(k.at(k.rbox(0.36, 0.012, 0.4, k.wood('oak'), { r: 0.005 }), D.x, Y0 + 0.006, D.z));
-    for (let i = 0; i < 45; i++) g.add(k.at(k.box(0.0028, 0.0006, 0.0028, k.mat('#fbf7ee', { rough: 1 })), D.x + (Math.random() - 0.5) * 0.32, Y0 + 0.0125, D.z + (Math.random() - 0.5) * 0.36));
+    g.add(k.at(k.rbox(0.36, 0.012, 0.33, k.wood('oak'), { r: 0.005 }), D.x, Y0 + 0.006, D.z + 0.015));
+    for (let i = 0; i < 45; i++) g.add(k.at(k.box(0.0028, 0.0006, 0.0028, k.mat('#fbf7ee', { rough: 1 })), D.x + (Math.random() - 0.5) * 0.32, Y0 + 0.0125, D.z + 0.01 + (Math.random() - 0.5) * 0.3));
     // 나폴리 장작 화덕: 헤링본 테라코타 벽돌 돔 + 구리 연통 + 아치형 석재 입구, 안쪽 왼편엔 장작불 · 숯불 · 불티
-    g.add(k.at(k.rbox(0.72, Y0, 0.72, k.mat('#8f8679', { rough: 0.9 }), { r: 0.02 }), OVEN.x, Y0 / 2, OVEN.z - 0.04));
+    // v19: 석재 받침은 테이블 뒤쪽에만 (예전엔 테이블 상판 · 다리 · 선반과 겹치고 윗면이 같은 높이라 깜빡였다)
+    g.add(k.at(k.rbox(0.72, Y0, 0.33, k.mat('#8f8679', { rough: 0.9 }), { r: 0.02 }), OVEN.x, Y0 / 2, -0.43 - 0.165 - 0.002));
+    // v19: 스테인리스 백스플래시가 화덕 돔을 가로질러 관통했다 → 화덕 왼쪽만 남긴다
+    if (this.splash) {
+      g.remove(this.splash);
+      const x1 = OVEN.x - 0.3 - 0.012;
+      this.splash = k.at(k.box(x1 + 0.49, 0.26, 0.02, k.metal('steel')), (x1 - 0.49) / 2, Y0 + 0.13, -0.42);
+      g.add(this.splash);
+    }
     this.oven = buildForno({ R: 0.3, mouthW: 0.34, mouthH: 0.2, detail: 'bench' });
     this.oven.position.copy(OVEN);
     g.add(this.oven);
@@ -305,6 +314,8 @@ export class PizzaBench extends BoardBench {
     this.sauceMesh.position.y = 0.0075;
     this.sauceMesh.visible = true;
     this.ladle.visible = true;
+    // v19: 첫 손짓 전에도 도우 위에서 대기 (예전엔 무대 원점 = 테이블 아래 선반 속에 보이는 채로 있었다)
+    this.ladle.position.set(D.x, D.y + 0.012, D.z);
     ctx.view(V(D.x, Y0 + 0.03, D.z), 0.42, 1.05);
     ctx.ui.step(cream ? '트러플 크림 스월링' : '산마르자노 소스 스월링', '가운데서 바깥으로 나선');
     const samples = [];
@@ -495,7 +506,7 @@ export class PizzaBench extends BoardBench {
     const lift = Y0 + 0.028; // 랜딩 턱을 넘는 높이
     const front = V(OVEN.x, lift, mouthZ + 0.17);
     const throat = V(OVEN.x, lift, OVEN.z + 0.06);
-    const inside = V(OVEN.x + 0.04, Y0 + 0.0155, OVEN.z + 0.03); // 장작불 반대편(오른쪽) 화산석 위
+    const inside = V(OVEN.x, Y0 + 0.0145, OVEN.z + 0.03); // v19: 세 장작 무더기 사이 가운데 화산석(윗면 +1.4cm) 위
     const path = [home.clone().setY(lift), front, throat];
     const seg = path.slice(1).map((p, i) => p.distanceTo(path[i]));
     const total = seg.reduce((x, y) => x + y, 0);
@@ -508,6 +519,10 @@ export class PizzaBench extends BoardBench {
       return path[path.length - 1].clone();
     };
     const PEEL_DY = -0.0035; // 날이 도우 바로 밑
+    // v19: 화덕 입구 돌턱(높이 2.2cm)을 넘어 드나들고, 화산석 바닥(윗면 +1.4cm) 아래로 들어가지 않는다 (감사: 필이 턱 · 바닥을 1.3cm 뚫음)
+    const PEEL_FLOOR = Y0 + 0.0145;
+    const overSill = (p) => p.clone().setY(lift + PEEL_DY);
+    const mouthIn = V(OVEN.x, lift + PEEL_DY, mouthZ - 0.05);
     const peelOut = home.clone().add(V(0.06, 0, 0.36)).setY(Y0 + 0.012);
     this.peel.visible = true;
     this.peel.position.copy(peelOut);
@@ -550,9 +565,11 @@ export class PizzaBench extends BoardBench {
     refresh();
     ctx.ui.actions([]);
     // 1) 필이 도우 밑으로 쓱 (앞쪽에서 밀어 넣는다)
+    this.tw.to(this.pizza, { pos: home.clone().setY(Y0 + 0.0125 - PEEL_DY), dur: 0.55 });
     this.tw.to(this.peel, {
-      pos: home.clone().setY(home.y + PEEL_DY),
+      pos: home.clone().setY(Y0 + 0.0125), // v19: 반죽판 윗면을 타고 들어간다 (예전엔 판 속 4mm 로 파고들었다)
       dur: 0.55,
+      // 날(두께 3.2mm)이 밑으로 들어오는 만큼 도우가 살짝 들린다
       onDone: () => {
         ctx.sound.swish();
         self.tw.to(self.pizza, { pos: home.clone().setY(lift), dur: 0.25 });
@@ -572,11 +589,13 @@ export class PizzaBench extends BoardBench {
       ctx.sound.plop();
       // 피자를 돌바닥으로 내려놓고, 필만 재빨리 뒤로 뺀다
       self.tw.to(self.pizza, { pos: inside, dur: 0.35 });
-      self.tw.to(self.peel, { pos: inside.clone().setY(inside.y + PEEL_DY), dur: 0.35 });
+      self.tw.to(self.peel, { pos: inside.clone().setY(PEEL_FLOOR), dur: 0.35 });
       ctx.later(0.4, () => {
         ctx.sound.swish();
-        self.tw.to(self.peel, { pos: throat.clone().setY(Y0 + 0.014), dur: 0.16 });
-        ctx.later(0.17, () => self.tw.to(self.peel, { pos: peelOut, dur: 0.45 }));
+        self.tw.to(self.peel, { pos: throat.clone().setY(PEEL_FLOOR), dur: 0.12 });
+        ctx.later(0.13, () => self.tw.to(self.peel, { pos: mouthIn, dur: 0.1 }));
+        ctx.later(0.24, () => self.tw.to(self.peel, { pos: overSill(front), dur: 0.14 }));
+        ctx.later(0.39, () => self.tw.to(self.peel, { pos: peelOut, dur: 0.3 }));
       });
       ctx.later(0.75, () => {
         phase = 'bake';
@@ -595,11 +614,15 @@ export class PizzaBench extends BoardBench {
       ctx.sound.fireStop();
       const score = zoneScore(b, [0.75, 0.95]);
       // 필이 다시 들어가 떠낸 뒤 반죽판으로
-      self.tw.to(self.peel, { pos: throat.clone().setY(Y0 + 0.014), dur: 0.35 });
-      ctx.later(0.36, () => self.tw.to(self.peel, { pos: inside.clone().setY(inside.y + PEEL_DY), dur: 0.2 }));
+      self.tw.to(self.peel, { pos: overSill(front), dur: 0.15 });
+      ctx.later(0.16, () => self.tw.to(self.peel, { pos: mouthIn, dur: 0.1 }));
+      ctx.later(0.27, () => self.tw.to(self.peel, { pos: throat.clone().setY(PEEL_FLOOR), dur: 0.1 }));
+      ctx.later(0.38, () => self.tw.to(self.peel, { pos: inside.clone().setY(PEEL_FLOOR), dur: 0.18 }));
       ctx.later(0.6, () => {
         ctx.sound.swish();
-        const back = [throat, front, home.clone().setY(lift), home];
+        // v19: 반죽판에 내려놓을 때 필 날은 판 윗면 위, 필을 빼면 피자가 판으로 3.5mm 내려앉는다 (예전엔 필이 판 속 3.5mm)
+        const onBoard = home.clone().setY(Y0 + 0.0125 - PEEL_DY);
+        const back = [throat, front, home.clone().setY(lift), onBoard];
         let t0 = 0;
         for (const to of back) {
           const d = 0.24;
@@ -609,7 +632,10 @@ export class PizzaBench extends BoardBench {
           });
           t0 += d;
         }
-        ctx.later(t0 + 0.05, () => self.tw.to(self.peel, { pos: peelOut, dur: 0.4 }));
+        ctx.later(t0 + 0.05, () => {
+          self.tw.to(self.peel, { pos: peelOut, dur: 0.4 });
+          self.tw.to(self.pizza, { pos: home, dur: 0.3 });
+        });
         ctx.later(t0 + 0.5, () => {
           self.peel.visible = false;
           for (const x of bubbles) x.parent?.remove(x);
@@ -872,7 +898,8 @@ export class PizzaBench extends BoardBench {
         const dir = V(Math.cos(-l.a), 0, Math.sin(-l.a));
         const s = -R * 1.05 + 2.1 * R * k;
         wheel.position.set(P.x + dir.x * s, P.y + yTop + 0.001, P.z + dir.z * s);
-        wheel.rotation.y = l.a;
+        // v19: 손잡이는 늘 요리사(앞) 쪽으로 — 선 방향 그대로면 45° · 90° · 135° 선에서 손잡이가 화덕 아치를 찔렀다
+        wheel.rotation.y = l.a + (Math.sin(l.a) > 0.01 ? Math.PI : 0);
         wheel.userData.disc.rotation.y -= dt * 40;
         if (Math.random() < 0.5) ctx.sound.roll?.();
         if (k >= 1) {

@@ -78,3 +78,34 @@ export function keepAbove(tool, worldY) {
   tool.updateMatrixWorld(true);
   return dy;
 }
+
+/**
+ * v19: 도구의 모든 꼭짓점이 곡면(그릇 안쪽 바닥 등) 위에 있도록 들어 올린다.
+ * surfaceY(x, z) 는 frame(보통 무대) 로컬 좌표에서 그 자리 표면 높이 (해당 없으면 -Infinity).
+ * 도구는 frame 의 자식이어야 한다. 들어 올린 양(m)을 돌려준다.
+ */
+export function liftAboveSurface(tool, frame, surfaceY, margin = 0.002) {
+  tool.updateMatrixWorld(true);
+  frame.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(frame.matrixWorld).invert();
+  const m = new THREE.Matrix4();
+  const v = new THREE.Vector3();
+  let need = 0;
+  tool.traverse((o) => {
+    if (!o.isMesh || !visibleChain(o)) return;
+    const pos = o.geometry?.attributes?.position;
+    if (!pos) return;
+    m.multiplyMatrices(inv, o.matrixWorld);
+    const step = Math.max(1, Math.floor(pos.count / 240));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m);
+      const s = surfaceY(v.x, v.z);
+      if (s + margin - v.y > need) need = s + margin - v.y;
+    }
+  });
+  if (need > 0) {
+    tool.position.y += need;
+    tool.updateMatrixWorld(true);
+  }
+  return need;
+}

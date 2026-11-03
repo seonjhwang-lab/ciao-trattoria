@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getFoodTopY, keepAbove } from './toolClear.js';
+import { getFoodTopY, keepAbove, liftAboveSurface } from './toolClear.js';
 import { kit } from '../core/Kit.js';
 import { BoardBench } from './BoardBench.js';
 import { layFlat } from './Ingredient3D.js';
@@ -87,7 +87,16 @@ export class SaladBench extends BoardBench {
     const z = BOWL.z + Math.sin(a) * d;
     o.position.set(x, floorAt(d) + lift, z);
     o.rotation.y = Math.random() * Math.PI * 2;
+    this.settle(o);
     this.bits.push({ o, v: V(0, 0, 0), spin: V(0, 0, 0), lift, rest: true });
+  }
+
+  // v19: 잎 · 조각 가장자리까지 볼 안쪽 곡면 위로 (평평하게 놓은 잎 끝이 볼 벽을 3mm 파고들었다)
+  settle(o) {
+    liftAboveSurface(o, this.stage, (x, z) => {
+      const rr = Math.hypot(x - BOWL.x, z - BOWL.z);
+      return rr < BR ? floorAt(rr) : -Infinity;
+    }, 0.0015);
   }
 
   start(step) {
@@ -125,6 +134,7 @@ export class SaladBench extends BoardBench {
           b.spin.set(0, 0, 0);
           b.o.rotation.x *= 0.3;
           b.o.rotation.z *= 0.3;
+          this.settle(b.o);
         } else {
           b.v.y *= -0.35;
           b.v.x *= 0.6;
@@ -313,6 +323,11 @@ export class SaladBench extends BoardBench {
       // 손목 뒤집기: 손잡이 축으로 회전 (머리 오목면이 아래 → 위)
       qb.setFromAxisAngle(dir, side * (Math.PI * 0.5 - roll * Math.PI * 0.95));
       sv.quaternion.copy(qb).multiply(qa);
+      // v19: 기울어진 서버 머리 가장자리까지 볼 안쪽 곡면 위로 (예전엔 1.2cm 볼 바닥을 뚫었다)
+      liftAboveSurface(sv, self.stage, (x, z) => {
+        const rr = Math.hypot(x - BOWL.x, z - BOWL.z);
+        return rr < BR ? floorAt(rr) : -Infinity;
+      });
       void up;
     };
     const scoop = () => {

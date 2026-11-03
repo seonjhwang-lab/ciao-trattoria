@@ -903,8 +903,28 @@ export function buildBistroDish(recipeId) {
       o.receiveShadow = true;
     }
   });
+  liftBelowBase(g);
   g.userData.hero = true;
   return g;
+}
+
+// v19: 접시 테두리 밖으로 늘어진 잎 끝 등 바닥(y=0) 아래로 내려간 조각은 그만큼 올린다 (시저 로메인 잎 끝이 테이블 속 2.9mm)
+function liftBelowBase(g) {
+  g.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(g.matrixWorld).invert();
+  const m = new THREE.Matrix4();
+  const v = new THREE.Vector3();
+  for (const ch of g.children) {
+    let lo = Infinity;
+    ch.traverse((o) => {
+      const pos = o.isMesh && o.geometry?.attributes?.position;
+      if (!pos) return;
+      m.multiplyMatrices(inv, o.matrixWorld);
+      for (let i = 0; i < pos.count; i += Math.max(1, Math.floor(pos.count / 300))) lo = Math.min(lo, v.fromBufferAttribute(pos, i).applyMatrix4(m).y);
+    });
+    if (lo < -0.0003) ch.position.y += -lo + 0.0005;
+  }
+  g.updateMatrixWorld(true);
 }
 
 export { pastaBowl, saladBowl, leaf, quenelle, cucumberSlice, crouton, blob, mushroomSlice };

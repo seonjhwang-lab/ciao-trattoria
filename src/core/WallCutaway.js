@@ -137,10 +137,20 @@ export class WallCutaway {
       cursor = o.b;
     }
     seg(cursor, L / 2, 0, WALL_H);
-    const base = kit.box(L - 0.02, 0.12, 0.02, kit.mat('#f6f1e8', { rough: 0.5 }));
-    base.position.set(0, 0.05, T / 2 + 0.011);
-    base.userData.seg = true;
-    group.add(base);
+    // 걸레받이: 바닥까지 뚫린 출입문 구간은 비운다 (v19 감사: 문턱을 가로질러 손님 발이 뚫고 지나갔다)
+    const baseMat = kit.mat('#f6f1e8', { rough: 0.5 });
+    let bx = -L / 2 + 0.01;
+    const doors = openings.filter((o) => o.bottom <= 0).sort((p, q) => p.a - q.a);
+    for (const end of [...doors.map((d) => [d.a, d.b]), [L / 2 - 0.01, null]]) {
+      const x1 = end[0];
+      if (x1 - bx > 0.01) {
+        const base = kit.box(x1 - bx, 0.12, 0.02, baseMat);
+        base.position.set((bx + x1) / 2, 0.05, T / 2 + 0.011);
+        base.userData.seg = true;
+        group.add(base);
+      }
+      if (end[1] !== null) bx = end[1];
+    }
 
     const holder = new THREE.Group();
     holder.position.copy(position);

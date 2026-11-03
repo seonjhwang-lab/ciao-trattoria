@@ -400,11 +400,14 @@ async function boot() {
   }
   function placeTable3() {
     if (!progress.owns('extra', 'table3')) return;
-    if (tablesNow().some((t) => t.tx === 5 && t.tz === 6)) return;
+    // v19: 오른쪽 앞 구석 (6,6). 예전 (5,6) + 의자 (5,5) · (4,6) 은 매장을 동서로 갈라
+    //      셰프가 왼쪽 테이블로 못 가고 (4,3) 의자 손님이 접근 칸을 잃었다 (T.auditSeats 로 발견).
+    //      (5,4) - (5,5) - (4,5) 통로는 비워 둔다.
+    if (tablesNow().some((t) => t.tx === 6 && t.tz === 6)) return;
     const set = CATALOG.tableSet.find((x) => x.id === progress.p.sel.tableSet) ?? CATALOG.tableSet[0];
-    furniture.place(set.table, 5, 6, 0);
-    furniture.place(set.chair, 5, 5, 0);
-    furniture.place(set.chair, 4, 6, 1);
+    furniture.place(set.table, 6, 6, 0);
+    furniture.place(set.chair, 6, 5, 0);
+    furniture.place(set.chair, 5, 6, 1);
   }
   function swapTableSet(id) {
     const set = CATALOG.tableSet.find((x) => x.id === id);
@@ -467,6 +470,8 @@ async function boot() {
   if (progress.p.sel.wall) applyFinish('wall', progress.p.sel.wall);
   if (progress.p.sel.floor) applyFinish('floor', progress.p.sel.floor);
   placeTable3();
+  // v19: 배치가 기본값으로 초기화돼도 고른 테이블 세트를 다시 입힌다
+  if (progress.p.sel.tableSet && progress.p.sel.tableSet !== 'bistro') swapTableSet(progress.p.sel.tableSet);
   if (progress.owns('props', 'olive') && ![...furniture.items.values()].some((i) => i.defId === 's1_plant_olive')) furniture.place('s1_plant_olive', 6, 7, 0, 1);
   buildWine();
   buildPendants();
@@ -944,7 +949,7 @@ async function boot() {
       return intro;
     },
     dishes: { buildHeroDish, buildBistroDish },
-    progress, catalog: () => catalog, daySum, letter,
+    progress, catalog: () => catalog, daySum, letter, applyDecor, THREE, // applyDecor · THREE: 3D 무결성 감사(tools/__t.js)용
     tap: liveTap,
     tapCustomer,
     tapStation,

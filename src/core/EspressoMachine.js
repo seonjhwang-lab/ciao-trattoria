@@ -392,9 +392,10 @@ export function buildGrinder({ body = 'black' } = {}) {
   g.add(M(once('grScreen', () => new THREE.BoxGeometry(0.06, 0.03, 0.004)), std('#1d2a2a', { emissive: '#7fe0c8', ei: 0.35, rough: 0.2 }), 0, 0.255, 0.087, -0.5));
   g.add(M(once('grBtn', () => new THREE.CylinderGeometry(0.007, 0.007, 0.006, 14)), MAT.ledAmber(), 0, 0.225, 0.084, Math.PI / 2 - 0.5));
   // 분쇄 토출구 (앞으로 비스듬히)
-  g.add(M(once('grChute', () => new THREE.CylinderGeometry(0.012, 0.016, 0.05, 14)), MAT.chrome(), 0, 0.175, 0.06, -0.9));
+  // v19: 토출구를 2cm 올리고 포크를 앞으로 늘렸다 — 포터필터 바스켓 · 원두 더미가 몸통 앞면 속에, 토출구 끝이 더미 속에 묻히던 것 (감사)
+  g.add(M(once('grChute', () => new THREE.CylinderGeometry(0.012, 0.016, 0.05, 14)), MAT.chrome(), 0, 0.195, 0.06, -0.9));
   // 포터필터 거치 포크 (두 갈래)
-  for (const x of [-1, 1]) g.add(M(once('grFork', () => new THREE.BoxGeometry(0.01, 0.01, 0.07)), MAT.chrome(), x * 0.03, 0.115, 0.06));
+  for (const x of [-1, 1]) g.add(M(once('grFork2', () => new THREE.BoxGeometry(0.01, 0.01, 0.095)), MAT.chrome(), x * 0.03, 0.115, 0.0725));
   g.add(M(once('grForkBar', () => new THREE.BoxGeometry(0.07, 0.012, 0.012)), MAT.chrome(), 0, 0.115, 0.03));
   // 가루 받이
   g.add(M(once('grCatch', () => new THREE.BoxGeometry(0.1, 0.012, 0.07)), MAT.steel(), 0, 0.028, 0.07));

@@ -299,7 +299,9 @@ export class PastaBench {
       const even = 1 - Math.min(1, (Math.max(...ts) - Math.min(...ts)) / 0.012);
       const score = Math.round(70 + even * 30);
       ctx.ui.pop(`고르게 폈어요 · ${scoreWord(score)}`, score >= 70);
-      self.tw.to(self.pin, { pos: V(PB.x + 0.28, YB + 0.02, PB.z - 0.2), quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.6, 0)), dur: 0.5 });
+      // v19: 다 민 밀대는 보드 뒤 빈 상판에 나란히 내려놓는다 (예전 자리는 34° 돌아간 채 프라이팬을 관통했다)
+      self.pin.rotation.x = Math.atan2(Math.sin(self.pin.rotation.x), Math.cos(self.pin.rotation.x));
+      self.tw.to(self.pin, { pos: V(PB.x - 0.03, Y0 + 0.0205, -0.22), quat: new THREE.Quaternion(), dur: 0.5, arc: 0.05 });
       ctx.done(score, `반죽 밀기 (왕복 ${passes}번)`);
     };
     const flourStreak = (v) => {

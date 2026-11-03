@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getFoodTopY, keepAbove, lowestPoint } from './toolClear.js';
+import { getFoodTopY, keepAbove, lowestPoint, liftAboveSurface } from './toolClear.js';
 import { kit } from '../core/Kit.js';
 import { SliceableItem, layFlat, buildPrepped, lobeTop, radiusAt } from './Ingredient3D.js';
 import { endgrainTexture, traceLoaf } from './benchTextures.js';
@@ -113,7 +113,8 @@ export class BoardBench {
       g.add(k.at(k.box(0.04, Y0 - 0.02, 0.04, steel), x * 0.44, (Y0 - 0.02) / 2, z * 0.38));
     g.add(k.at(k.box(0.92, 0.03, 0.8, steel), 0, 0.22, 0));
     g.add(k.at(k.box(0.98, 0.04, 0.86, steel), 0, Y0 - 0.02, 0));
-    g.add(k.at(k.box(0.98, 0.26, 0.02, steel), 0, Y0 + 0.13, -0.42));
+    this.splash = k.at(k.box(0.98, 0.26, 0.02, steel), 0, Y0 + 0.13, -0.42);
+    g.add(this.splash);
   }
 
   // 도마 + 빵칼 + 버터나이프
@@ -221,6 +222,7 @@ export class BoardBench {
 
   update(dt) {
     this.tw.update(dt);
+    this.postTween?.(); // v19: 트윈이 위치를 정한 뒤에 높이 제한을 건다 (단계 update 는 트윈보다 먼저 돈다)
     if (this.hero && this.heroT < 1) {
       this.heroT = Math.min(1, this.heroT + dt / 0.45);
       const u = this.heroT;
@@ -247,6 +249,8 @@ export class BoardBench {
         this.knife.position.set(a.x, a.y0 + (a.y1 - a.y0) * Math.pow(e, 1.2), a.z0 + (a.z1 - a.z0) * e);
         this.knife.rotation.set(0, Math.PI / 2, -0.32 + e * 0.32);
       }
+      // v19: 톱질 · 푸시컷 중 날이 기울어도 날 끝은 도마 윗면에서 멈춘다 (예전엔 1~2cm 박혔다)
+      keepAbove(this.knife, YB + 0.0008);
       if (u >= 1 && !a.hit) {
         a.hit = true;
         a.item.cut(a.xm);
@@ -385,6 +389,9 @@ export class BoardBench {
         if (p && !self.knifeAnim) {
           self.knife.position.copy(p);
           self.knife.rotation.set(0, Math.PI / 2, down ? -0.6 : -0.25);
+          // v19: 겨누는 칼은 기울어도 날 끝이 도마 · 재료 윗면 아래로 들어가지 않는다 (예전엔 2.8cm 박혔다). 실제로 써는 건 pushCut 애니메이션
+          const H = item ? (item.ing.kind === 'loaf' ? item.ing.h : item.ing.w) : 0;
+          keepAbove(self.knife, YB + H + 0.004);
         }
       },
       up(e, ndc) {
@@ -1132,7 +1139,9 @@ export class BoardBench {
         if (p) {
           self.knife.visible = true;
           self.knife.position.copy(p);
-          self.knife.rotation.set(0, -Math.PI / 4, -0.4);
+          self.knife.rotation.set(0, (3 * Math.PI) / 4, -0.4);
+          // v19: 겨누는 칼 날끝이 샌드위치 · 접시 속으로 들어가지 않게 (0.4rad 기울면 날끝이 11cm 내려갔다)
+          keepAbove(self.knife, Y0 + yTopStack + 0.004);
         }
       },
       up(e, ndc) {
@@ -1180,10 +1189,17 @@ export class BoardBench {
         const ph = u * Math.PI * 4;
         const along = Math.sin(ph) * 0.03;
         const pLocal = diag.clone().multiplyScalar(along).setY(yTop + 0.02 - (yTop + 0.02 - yBot) * u);
-        // 칼날 중심(원점에서 14cm)이 샌드위치 위에 오도록 손잡이 쪽으로 물린다
-        const w = self.stage.worldToLocal(toWorld(pLocal.add(diag.clone().multiplyScalar(-0.14))));
+        // 칼날 중심(원점에서 14cm)이 샌드위치 위에 오도록 손잡이 쪽으로 물린다.
+        // v19: 손잡이는 오른쪽 앞(도마 반대쪽)으로 — 도마 쪽이면 접시보다 2cm 높은 도마 속으로 손잡이가 1.7cm 박혔다
+        const w = self.stage.worldToLocal(toWorld(pLocal.add(diag.clone().multiplyScalar(0.14))));
         self.knife.position.copy(w);
-        self.knife.rotation.set(0, -Math.PI / 4, -0.05 + Math.cos(ph) * 0.03);
+        self.knife.rotation.set(0, (3 * Math.PI) / 4, -0.05 + Math.cos(ph) * 0.03);
+        // 톱질로 기울어도 날은 접시 바닥 · 테두리(바닥보다 6mm 높다) 윗면에서 멈춘다 (예전엔 6mm 박혔다)
+        liftAboveSurface(self.knife, self.stage, (x, z) => {
+          const r = Math.hypot(x - PLATE.x, z - PLATE.z);
+          if (r < PLATE.r - 0.012) return Y0 + Math.max(self.top, yBot);
+          return r <= PLATE.r + 0.002 ? Y0 + self.top + 0.006 : -Infinity;
+        }, 0.0008);
         const stroke = Math.floor(ph / Math.PI);
         if (stroke !== anim.stroke) {
           anim.stroke = stroke;
@@ -1318,8 +1334,27 @@ export class BoardBench {
     const home = this.mill.position.clone();
     // v13: 뒤집힌 페퍼밀은 원점에서 아래로 약 0.2m (노즐) → 노즐이 윗면 + 0.10m 이상
     const topSurfaceY = Y0 + this.top;
-    const millAt = V(PLATE.x, topSurfaceY + 0.1 + 0.2, PLATE.z);
-    const millMinY = Math.max(getFoodTopY(this.dish), topSurfaceY) + 0.1; // v16: 노즐 끝 ≥ 음식 최고점 + 10cm
+    // v16: 노즐 끝 ≥ 음식 최고점 + 10cm. v19: 접시 그룹 밖(무대)에 놓인 윗빵까지 접시 둘레의 음식을 모두 본다
+    const plateW = this.stage.localToWorld(V(PLATE.x, Y0, PLATE.z));
+    const tools = [this.mill, this.knife, this.spatula, this.oil, this.honey, ...Object.values(this.pans ?? {}), ...Object.values(this.panFood ?? {})].filter(Boolean);
+    const flakes = [];
+    const foodTop = () => Math.max(getFoodTopY(this.dish, { exclude: flakes }), getFoodTopY(this.stage, { exclude: [...tools, ...flakes], center: plateW, radius: PLATE.r + 0.02 }), topSurfaceY);
+    const millMinY = foodTop() + 0.1;
+    // v19: 날아오는 위치부터 음식 최고점 기준 (접시 윗면 기준이면 높게 쌓은 BLT 위에서 노즐이 6cm 까지 내려왔다)
+    const millAt = V(PLATE.x, millMinY + 0.2 + 0.004, PLATE.z);
+    // 알갱이가 내려앉는 높이 = 음식 윗면 (예전엔 접시 바닥까지 빵을 뚫고 내려갔다)
+    const landY = Math.max(this.top, millMinY - 0.1 - Y0) + 0.002;
+    let active = true;
+    // 날아오는 동안에도 노즐이 음식 위 10cm 아래로 내려오지 않게 (트윈 다음에 적용)
+    // 윗빵이 늦게 내려앉아도 따라가도록 매 프레임 다시 잰다 (떨어지는 후추 알갱이는 제외)
+    // 갈러 날아올 때 · 갈 때 · 제자리로 돌아갈 때 모두, 노즐이 접시 위에 있는 동안은 지킨다 (돌아가는 길에 8.5cm 까지 내려왔다)
+    const overPlate = () => {
+      const nz = lowestPoint(self.mill);
+      if (!nz) return false;
+      const l = self.stage.worldToLocal(nz.clone());
+      return Math.hypot(l.x - PLATE.x, l.z - PLATE.z) < PLATE.r + 0.04;
+    };
+    this.postTween = () => (active || overPlate()) && keepAbove(self.mill, foodTop() + 0.1);
     this.tw.to(this.mill, { pos: millAt, quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI, 0, 0.1)), dur: 0.45 });
     ctx.view(V(PLATE.x, Y0 + this.top + 0.1, PLATE.z), 0.5, 0.62);
     ctx.ui.step('통후추 갈기', '빙글빙글 3바퀴 돌려요');
@@ -1332,6 +1367,7 @@ export class BoardBench {
     const finish = () => {
       const score = Math.max(30, Math.round(100 - Math.abs(turns - 3) * 22));
       ctx.ui.pop(`${score}점 · ${scoreWord(score)}`, score >= 70);
+      active = false;
       self.tw.to(self.mill, { pos: home, quat: new THREE.Quaternion(), dur: 0.4 });
       ctx.done(score, '통후추');
     };
@@ -1359,14 +1395,18 @@ export class BoardBench {
         while (emitted < acc / 0.35) {
           emitted++;
           ctx.sound.burst({ dur: 0.03, freq: 3200, q: 3, peak: 0.08 });
+          // 후추 알갱이는 노즐 끝에서 떨어진다 (음식 속에서 생기지 않게)
+          const nz = lowestPoint(self.mill);
+          const from = nz ? self.dish.worldToLocal(nz.clone()) : V(-0.02, self.top + 0.095, -0.02);
           for (let i = 0; i < 3; i++) {
             const s = kit.box(0.0015, 0.0012, 0.0015, speck);
             s.castShadow = false;
-            s.position.set(PLATE.x - 0.02 - self.dish.position.x, self.top + 0.095, PLATE.z - 0.02 - self.dish.position.z);
+            flakes.push(s);
+            s.position.set(from.x, from.y - 0.004, from.z);
             self.dish.add(s);
             const r = Math.sqrt(Math.random()) * 0.05;
             const t = Math.random() * Math.PI * 2;
-            self.tw.to(s, { pos: V(Math.cos(t) * r, self.top + 0.003, Math.sin(t) * r), dur: 0.35 + Math.random() * 0.2 });
+            self.tw.to(s, { pos: V(Math.cos(t) * r, landY, Math.sin(t) * r), dur: 0.35 + Math.random() * 0.2 });
           }
         }
         refresh();
@@ -1376,6 +1416,7 @@ export class BoardBench {
       },
       update() {},
       destroy() {
+        self.postTween = null;
         self.mill.position.copy(home);
         self.mill.quaternion.identity();
       },
@@ -1486,8 +1527,9 @@ function panPortion(id, ing) {
   };
   if (id === 'bacon') for (let i = 0; i < 3; i++) add(heroBacon(), 0, -0.02 + i * 0.02, 0.1 * i, i * 0.003);
   else if (id === 'lettuce') {
-    add(heroLettuce(0.11), 0, 0);
-    add(heroLettuce(0.1), 0.006, 0.004, 1.2, 0.004);
+    // v19: 밧드 안쪽(10.8 x 9.3cm)에 들어가는 크기 — 예전 11cm 잎이 스테인리스 벽을 뚫고 삐져나왔다
+    add(heroLettuce(0.086), 0, 0);
+    add(heroLettuce(0.08), 0.004, 0.003, 1.2, 0.004);
   } else if (id === 'egg') add(heroEgg(), 0, 0);
   else if (id === 'tomato') for (let i = 0; i < 3; i++) add(heroTomato(), (i - 1) * 0.03, (i % 2) * 0.012, i, i * 0.001);
   else if (id === 'avocado') for (let i = 0; i < 4; i++) add(avocadoSlice(), (i - 1.5) * 0.02, 0, 0.2);
@@ -1495,7 +1537,20 @@ function panPortion(id, ing) {
   else if (id === 'arugula') for (let i = 0; i < 5; i++) add(arugula(), (i - 2) * 0.015, (i % 2) * 0.015, i);
   else if (id === 'basil') for (let i = 0; i < 4; i++) add(basilLeaf(1.2), (i - 1.5) * 0.02, (i % 2) * 0.012, i);
   else g.add(buildPrepped(ing, ing.shape === 'egg' ? 1 : 2));
-  const box = new THREE.Box3().setFromObject(g);
+  // v19: 어떤 재료든 밧드 안쪽 바닥(약 10.8 x 9.3cm)에 들어가게 — 넘치면 줄이고 가운데로 (루꼴라가 벽 밖으로 1cm 삐져나왔다)
+  let box = new THREE.Box3().setFromObject(g);
+  const fit = Math.min(1, 0.096 / (box.max.x - box.min.x), 0.082 / (box.max.z - box.min.z));
+  if (fit < 1) {
+    g.scale.setScalar(fit);
+    box = new THREE.Box3().setFromObject(g);
+  }
+  const cx = (box.min.x + box.max.x) / 2;
+  const cz = (box.min.z + box.max.z) / 2;
+  for (const ch of g.children) {
+    ch.position.x -= cx / g.scale.x;
+    ch.position.z -= cz / g.scale.z;
+  }
+  box = new THREE.Box3().setFromObject(g);
   g.userData.h = Math.max(0.006, Math.min(0.03, box.max.y - box.min.y));
   return g;
 }

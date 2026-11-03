@@ -109,7 +109,7 @@ export class EspressoBench {
     this.heap.position.y = 0.012;
     this.heap.scale.set(1, 0.001, 1);
     this.pf.add(this.heap);
-    this.pf.position.set(GRINDER.x, GRINDER.y + 0.137, GRINDER.z + 0.075); // 그라인더 포크 위
+    this.pf.position.set(GRINDER.x, GRINDER.y + 0.137, GRINDER.z + 0.1); // 그라인더 포크 위 (v19: 몸통 앞면에서 떨어지게 2.5cm 앞으로)
     g.add(this.pf);
     // 잔 (라떼는 넓은 세라믹, 아메리카노는 유리)
     this.cup = new THREE.Group();
@@ -280,7 +280,7 @@ export class EspressoBench {
     let buzz = 0;
     return {
       update(dt) {
-        const chute = V(GRINDER.x, GRINDER.y + 0.165, GRINDER.z + 0.08);
+        const chute = V(GRINDER.x, GRINDER.y + 0.185, GRINDER.z + 0.08);
         for (const p of self.grounds) {
           p.m.visible = holding;
           if (!holding) continue;

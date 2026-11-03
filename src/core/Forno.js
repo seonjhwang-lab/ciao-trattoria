@@ -150,6 +150,7 @@ export function buildForno({ R = 0.3, mouthW = 0.32, mouthH = 0.2, detail = 'ben
   const portalGeo = new THREE.ExtrudeGeometry(frame, { depth, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 2, curveSegments: 12 });
   const portal = new THREE.Mesh(portalGeo, stone);
   portal.position.z = zBack;
+  portal.position.y = 0.006; // v19: 베벨(6mm)이 받침 아래로 파고들지 않게
   portal.castShadow = true;
   portal.receiveShadow = true;
   g.add(portal);
@@ -183,15 +184,16 @@ export function buildForno({ R = 0.3, mouthW = 0.32, mouthH = 0.2, detail = 'ben
   const logMat = new THREE.MeshStandardMaterial({ color: lin('#5b3a22'), roughness: 0.9 });
   const charMat = new THREE.MeshStandardMaterial({ color: lin('#2a1a12'), roughness: 1, emissive: lin('#ff4a10'), emissiveIntensity: 0.35 });
   const bench = detail === 'bench';
+  // v19: 장작 무더기를 벽 쪽(반지름 0.75R)으로 · 장작 길이 8cm — 가운데 피자 · 필이 장작을 뚫고 지나갔다 (감사)
   const spots = [
-    [-R * 0.62, -R * 0.18, 0.5],
-    [0, -R * 0.66, 0],
-    [R * 0.62, -R * 0.18, -0.5],
+    [-R * 0.73, -R * 0.15, 0.5],
+    [0, -R * 0.75, 0],
+    [R * 0.73, -R * 0.15, -0.5],
   ].map(([x, z, rot]) => ({ x, z, rot }));
   fire.spots = spots;
   for (const sp of spots) {
     for (let i = 0; i < (bench ? 3 : 2); i++) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.12, 10), i % 2 ? charMat : logMat);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.08, 10), i % 2 ? charMat : logMat);
       log.rotation.set(Math.PI / 2, 0, sp.rot + i * 0.9);
       log.position.set(sp.x + Math.cos(i * 1.9) * 0.018, 0.026 + Math.floor(i / 2) * 0.024, sp.z + Math.sin(i * 1.9) * 0.014);
       g.add(log);
@@ -212,8 +214,12 @@ export function buildForno({ R = 0.3, mouthW = 0.32, mouthH = 0.2, detail = 'ben
   const flameMats = ['#ffe08a', '#ffb347', '#ff7a2a'].map((c, i) => new THREE.MeshBasicMaterial({ color: lin(c), transparent: true, opacity: 0.85 - i * 0.12, depthWrite: false, blending: THREE.AdditiveBlending }));
   for (const sp of spots)
     for (let i = 0; i < (bench ? 6 : 3); i++) {
-      const f = new THREE.Mesh(new THREE.ConeGeometry(0.02 - (i % 3) * 0.004, 0.09 + (i % 3) * 0.045, 10, 1, true), flameMats[i % 3]);
-      f.position.set(sp.x + Math.cos(i * 2.3) * 0.03, 0.07, sp.z + Math.sin(i * 2.3) * 0.025);
+      // v19: 불꽃 원뿔의 밑동을 화산석 바닥 윗면에 둔다 (예전엔 가운데 기준이라 바닥 아래로 2~3cm 뚫고 내려갔다)
+      const fh = 0.09 + (i % 3) * 0.045;
+      const fg = new THREE.ConeGeometry(0.02 - (i % 3) * 0.004, fh, 10, 1, true);
+      fg.translate(0, fh / 2, 0);
+      const f = new THREE.Mesh(fg, flameMats[i % 3]);
+      f.position.set(sp.x + Math.cos(i * 2.3) * 0.03, 0.016, sp.z + Math.sin(i * 2.3) * 0.025);
       f.userData.base = f.position.clone();
       f.userData.ph = Math.random() * 6;
       g.add(f);
