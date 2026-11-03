@@ -1,0 +1,347 @@
+/* v17: 잘림 0건(Zero-Clipping) — 실제 보이는 영역(visualViewport) 기준 레이아웃
+   원칙: 하단 패널 · 대화창 · 품평창 · 메뉴판은 height:auto / max-height:none / overflow:visible.
+         텍스트는 line-clamp · 좁은 line-height 없이 1.35 이상. 내용이 길면 줄을 바꾸지, 자르지 않는다. */
+
+/* ───── 최상위: 100vh/100dvh 대신 실제 보이는 높이 ───── */
+html,
+body {
+  height: var(--vvh, 100dvh) !important;
+}
+#app,
+#ui {
+  position: fixed !important;
+  left: var(--vvl, 0px) !important;
+  top: var(--vvt, 0px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: var(--vvw, 100vw) !important;
+  height: var(--vvh, 100dvh) !important;
+  inset: auto;
+}
+#loading {
+  top: var(--vvt, 0px) !important;
+  height: var(--vvh, 100dvh) !important;
+  bottom: auto !important;
+}
+/* #ui 안의 전체 화면 오버레이는 브라우저 툴바 밑으로 파고들지 않게 #ui(보이는 영역) 기준 */
+#ui .intro,
+#ui .confirm,
+#ui .menu-board,
+#ui .taste-card,
+#ui .daysum,
+#ui .letter,
+#ui .cat,
+#ui .book {
+  position: absolute !important;
+}
+
+/* ───── 조리대 하단 패널: 2줄 (1줄 = 제목 · 힌트 - 진행 수치, 2줄 = 버튼) ───── */
+.wb .wb-side {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 8px 10px max(10px, env(safe-area-inset-bottom)) !important;
+}
+.wb .wb-side .wb-bottom,
+.wb .wb-side .wb-result {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.wb .wb-side .wb-bottom {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+}
+.wb .wb-row1 {
+  display: flex;
+  flex-wrap: wrap; /* 진행 표시가 넓으면(재료 순서 칩 등) 잘리지 않고 다음 줄로 */
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
+.wb .wb-side .wb-inst {
+  flex: 1 1 150px;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 7px;
+  row-gap: 0;
+}
+.wb .wb-side .wb-inst b {
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+.wb .wb-side .wb-inst p {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  color: #6e5a48;
+}
+.wb .wb-side .wb-meter {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  max-height: none !important;
+  overflow: visible !important;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.wb .wb-side .wb-meter:empty {
+  display: none;
+}
+/* 진행 수치 배지 (0.0 / 18.0g · 2 / 3 바퀴 …) */
+.wb .wb-side .wb-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 3px 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f3e8d6;
+  border: 1.5px solid #2b1d14;
+  white-space: nowrap;
+}
+.wb .wb-side .wb-readout b {
+  font-size: 17px;
+  line-height: 1.35;
+}
+.wb .wb-side .wb-readout span {
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.wb .wb-side .wb-thermo {
+  display: inline-block;
+  vertical-align: middle;
+}
+.wb .wb-side .wb-chips,
+.wb .wb-side .wb-seq,
+.wb .wb-side .wb-cover {
+  flex-wrap: wrap !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  gap: 4px;
+}
+.wb .wb-side .wb-chips span,
+.wb .wb-side .wb-seq span {
+  line-height: 1.35;
+}
+.wb .wb-side .wb-cover {
+  display: flex;
+  align-items: center;
+  gap: 4px 8px;
+}
+.wb .wb-side .wb-cover .bar {
+  width: 110px;
+  flex: 0 0 110px;
+}
+.wb .wb-side .wb-cover span,
+.wb .wb-side .wb-level span {
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.wb .wb-side .wb-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wb .wb-side .wb-level .vial {
+  width: 96px;
+}
+.wb .wb-side .wb-actions {
+  display: flex !important;
+  flex-wrap: wrap !important; /* 버튼이 많거나 길면 다음 줄로 — 가로 스크롤 · 잘림 없음 */
+  gap: 6px !important;
+  overflow: visible !important;
+  margin-top: 0 !important;
+}
+.wb .wb-side .wb-actions:empty {
+  display: none !important;
+}
+.wb .wb-side .wb-btn {
+  flex: 1 1 0 !important;
+  flex-shrink: 0;
+  min-width: max-content;
+  height: auto !important;
+  min-height: 42px !important;
+  padding: 6px 12px !important;
+  white-space: nowrap !important;
+  line-height: 1.35 !important;
+}
+.wb .wb-side .wb-btn span {
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+.wb .wb-side .wb-result {
+  gap: 7px !important;
+  justify-content: flex-start !important;
+}
+.wb .wb-side .wb-result .serve {
+  height: auto !important;
+  min-height: 44px !important;
+  line-height: 1.35 !important;
+}
+.rs-txt .svgt {
+  max-height: none !important;
+}
+
+/* ───── 대화창: 내용만큼, 자르지 않음 ───── */
+.dlg .dlg-card {
+  max-height: none !important;
+  overflow: visible !important;
+  height: auto !important;
+}
+.dlg .dlg-who {
+  height: auto !important;
+  min-height: 0 !important;
+}
+.dlg .dlg-who b,
+.dlg .dlg-who small {
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+.dlg .dlg-text {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  max-height: none !important;
+  overflow: visible !important;
+  line-height: 1.4 !important;
+  font-size: 13px !important;
+}
+.dlg .dlg-choices {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.dlg .dlg-btn,
+.dlg .dlg-btn.wide {
+  flex: 1 1 96px !important;
+  height: auto !important;
+  min-height: 38px !important;
+  padding: 5px 7px !important;
+}
+.dlg .dlg-btn span {
+  display: inline !important;
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+}
+
+/* ───── 품평 카드 · 말풍선 ───── */
+.taste-card {
+  max-height: none !important;
+  overflow: visible !important;
+  height: auto !important;
+}
+.taste-card .tc-quote {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  max-height: none !important;
+  overflow: visible !important;
+  line-height: 1.4 !important;
+}
+.taste-card .tc-head small,
+.taste-card .tc-head b,
+.taste-card .tc-pay {
+  line-height: 1.35 !important;
+}
+.bubble span {
+  display: inline !important;
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+  line-height: 1.35;
+}
+
+/* ───── 메뉴판: 스크롤 없음 + 자르지도 않음 (카드는 내용만큼, 설명은 줄바꿈) ───── */
+#ui .menu-board.v16 {
+  padding: 8px 8px max(10px, env(safe-area-inset-bottom));
+}
+#ui .mb16-card {
+  max-height: none;
+  overflow: visible;
+  gap: 6px;
+  padding: 8px 9px 9px;
+}
+#ui .mb16-list {
+  height: auto !important;
+  overflow: visible !important;
+}
+#ui .mb16-item {
+  height: auto !important;
+  min-height: 60px;
+  padding: 6px 10px !important;
+}
+#ui .mb16-row b,
+#ui .mb16-desc {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.35 !important;
+}
+#ui .mb16-tab {
+  height: auto !important;
+  min-height: 44px;
+  line-height: 1.35;
+}
+#ui .mb16-known {
+  flex-wrap: wrap !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  line-height: 1.35;
+}
+
+/* 대화 버튼: 아이콘과 글씨를 한 줄에 (줄바꿈이 필요하면 글씨만 두 줄) */
+.dlg .dlg-btn,
+.dlg .dlg-btn.wide {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  text-align: center;
+}
+
+/* 상단 바: 좁은 화면(≤ 380px)에서도 세 버튼이 눌리지 않게 */
+.hud-top .hud-react,
+.hud-top .hud-menu-btn,
+.hud-top .pill.money {
+  flex-shrink: 0;
+}
+@media (max-width: 380px) {
+  .hud-top {
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .hud-top .hud-react {
+    margin-left: 6px;
+    padding: 0 8px;
+    gap: 3px;
+  }
+  .hud-top .pill.money {
+    padding-left: 9px !important;
+    padding-right: 10px !important;
+  }
+  .hud-top .hud-menu-btn {
+    padding-left: 11px !important;
+    padding-right: 12px !important;
+  }
+}
+
+.wb .wb-side .wb-readout b {
+  color: #9a3f1f !important; /* 밝은 배지 위에서도 또렷하게 */
+}

@@ -7,11 +7,14 @@ import './ui/styles-v10.css';
 import './ui/styles-v12.css';
 import './ui/styles-v15.css';
 import './ui/styles-v16.css';
+import './ui/styles-v17.css';
 import * as THREE from 'three';
 import { registry } from './packs/index.js';
 import { bus } from './core/EventBus.js';
 import { GameState, LAYOUT_VER } from './core/GameState.js';
 import { reactionsOn } from './core/Settings.js';
+import { installViewportSync, viewport } from './core/Viewport.js';
+installViewportSync(); // v17: --vvh / --vvt 를 가장 먼저
 import { SceneManager } from './core/SceneManager.js';
 import { LabelLayer } from './core/Labels.js';
 import { DayCycle } from './core/DayCycle.js';
@@ -510,7 +513,7 @@ async function boot() {
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const setNdc = (x, y) => ndc.set((x / sm.w) * 2 - 1, -(y / sm.h) * 2 + 1);
+  const setNdc = (x, y) => ndc.set(((x - viewport().left) / sm.w) * 2 - 1, -((y - viewport().top) / sm.h) * 2 + 1);
   const tileAt = (x, y) => {
     setNdc(x, y);
     ray.setFromCamera(ndc, sm.camera);

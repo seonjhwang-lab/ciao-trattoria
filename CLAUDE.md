@@ -36,7 +36,10 @@ npm run fetch-assets # Kenney CC0 모델 다시 받기 → public/assets/models/
 5. **이모지 0개.** 아이콘은 전부 SVG (`src/ui/icons.js`). ♥ ♡ ↔ 💬 같은 문자도 `check-emoji` 에서 빌드가 실패한다.
 6. **45° 마름모 아이소 카메라 고정** (yaw π/4, `SceneManager.fitZoom()`), 확대/회전 UI 없음. 손님 얼굴이 보이도록 의자 방향 유지.
 7. **GPU 자원은 반드시 회수.** 손님 퇴장 시 `disposeObject`(스켈레톤 본 텍스처 포함), 조리대 닫을 때 `Workbench3D` 가 무대에 올라왔던 지오메트리 · 재질을 모두 해제(서빙 접시 `keepDish` 제외). 여러 곳에서 재사용하는 캐시 텍스처 · 재질은 `userData.shared = true`. 얼굴 텍스처는 256px 풀(`releaseFace`).
-8. **하단 창 높이 하드락 (v16).** 대화창 · 품평 카드 · 조리대 하단 바는 `max-height: 120px` (styles-v16.css). 손님 대사 · 품평은 `src/ui/clampLine.js` 로 28자 이내 1문장만 표시. 메뉴 설명은 레시피의 `desc` (22자 안팎, 명사형). `~라니` 말투 금지 (grep 0건 유지).
+8. **잘림 0건 원칙 (v17).** 하단 패널 · 대화창 · 품평창 · 메뉴판은 `height:auto` / `max-height:none` / `overflow:visible`. `max-height`+`overflow:hidden` 로 높이를 자르는 것, `-webkit-line-clamp`, `line-height` 1.35 미만 금지(v16 의 120px 하드락이 실기에서 버튼을 잘라 철거). 짧게 만들고 싶으면 내용을 줄인다: 대사 · 품평은 `src/ui/clampLine.js` 로 28자 이내 1문장, 메뉴 설명은 레시피 `desc`. `~라니` 말투 금지.
+   - 화면 높이는 `src/core/Viewport.js` 가 `visualViewport` 를 재서 `--vvh` / `--vvt` 에 넣는다(이벤트 + 0.4초 감시). `#app` · `#ui` 는 `height: var(--vvh)`, 렌더러도 `viewport()` 크기. `100vh` / `100dvh` 로 직접 높이를 잡지 말 것.
+   - 조리대 하단 패널은 2줄: `.wb-row1`(제목 · 힌트 - 진행 수치 배지) + `.wb-actions`(버튼). 패널 높이는 내용만큼이고 `ResizeObserver` 가 3D 뷰포트와 `--bar` 를 맞춘다.
+   - 검증: `tools/__t.js`(→ public 에 복사) 의 `T.auditScreens()` / `T.clipAudit()` 로 360×520 · 375×620 · 390×844 · 412×732 에서 인트로 · 홀 · 대화창 · 메뉴판 5탭 · 모든 조리대 전 단계 · 결과창을 전수 검사해 0건이어야 한다.
 9. **조리 도구는 음식을 뚫지 않는다 (v16).** `src/workbench/toolClear.js` 의 `getFoodTopY` / `keepAbove` 로 매 프레임 도구 실제 최저점을 음식 최고점 위로: 드리즐 · 드레싱 병 노즐 +8cm, 후추통 +10cm, 강판 +3cm, 피자 휠은 윗면에 닿기만.
 10. three.js 는 r128 고정. r128 재질에서 스키닝은 `skinning: true` 필요.
 
@@ -76,7 +79,7 @@ public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매�
 ## 5. 검증 방법
 
 - 375×812(모바일) 에서 확인. 브라우저 pane 은 requestAnimationFrame 이 잘 돌지 않으므로 `__cafe.advance(초)` 로 시뮬레이션을 진행한다.
-- 테스트 도우미는 `public/__t.js` 로 잠깐 복사해 `await import('/__t.js')` 로 쓰고 **빌드 전에 반드시 삭제**.
+- 테스트 도우미 원본은 `tools/__t.js`. `public/__t.js` 로 잠깐 복사해 브라우저 콘솔에서 `await import('/__t.js')` 로 쓰고 **빌드 전에 반드시 삭제**(빌드에 섞이지 않게, `public/__t.js` 는 .gitignore). `T.finger(x, y, 'both'|'pointer'|'touch'|'cancel')`, `T.toTalk()`, `T.auditScreens()`, `T.clipAudit()`.
 - 메모리: 손님 받기 → 조리대 → 서빙을 수십 번 반복하며 `__cafe.sm.renderer.info.memory` (geometries · textures) 가 늘지 않는지 본다. v15 기준 약 240 / 42 에서 고정.
 - 아티팩트 사본은 `<style>` 2개 · scrollHeight 812 · SVG ≤ 48px 를 확인한 뒤 발행.
 
@@ -85,4 +88,5 @@ public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매�
 - v13: 주방 · 패스 카운터 · 홀 분리, 45° 아이소 복귀, 첫 손님 퇴장 시 멈춤 수정.
 - v14: 7x8 확장, 현관 제거(서쪽 벽 출입문), 손님이 벽 뒤에서 걸어 들어옴.
 - v15: 튕김 대응(외곽선 · HDR 제거, 본 텍스처 · 조리대 GPU 누수 수정), 표준 click 복원, 메뉴판 탭 잠금 제거, 반투명 대화 · 품평 창, 리액션 ON/OFF, 슬라이스 웨지 → 중력 → 감쇠 탄성 + 겹침.
-- v16: 메뉴판 무스크롤 · pointerdown 재작성, 하단 창 120px 하드락 + 28자 1문장, `~라니` 문구 삭제 · 메뉴 설명 교체, 소스병 · 도구 관통 차단(toolClear.js).
+- v16: 메뉴판 무스크롤 · pointerdown 재작성, 28자 1문장, `~라니` 문구 삭제 · 메뉴 설명 교체, 소스병 · 도구 관통 차단(toolClear.js).
+- v17: 120px 하드락 철거(잘림 원인), visualViewport 동기화, 조리대 하단 패널 2줄 구조, 4개 뷰포트 잘림 0건 전수 검사.

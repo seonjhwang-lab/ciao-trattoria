@@ -336,16 +336,24 @@ export class DialogueUI {
     if (this.board.classList.contains('hidden')) return;
     this.board.classList.add('hidden');
     document.body.classList.remove('mb-open');
-    // 메뉴판이 pointerdown 에서 닫힌 직후, 같은 손가락의 click 이 아래 버튼 · 매장에 떨어지지 않게 한 번 흡수
-    const until = performance.now() + 600;
+    // 메뉴판을 닫은 '그 손가락'이 떼어질 때 생기는 click 한 번만 흡수한다.
+    // 새 손가락이 닿으면(pointerdown) 흡수를 바로 해제 — 닫자마자 누른 다른 버튼은 절대 씹히지 않는다
+    let armed = true;
+    const off = () => {
+      armed = false;
+      window.removeEventListener('click', eat, true);
+      window.removeEventListener('pointerdown', fresh, true);
+    };
     const eat = (e) => {
-      if (performance.now() > until) return window.removeEventListener('click', eat, true);
+      if (!armed) return;
       e.preventDefault();
       e.stopPropagation();
-      window.removeEventListener('click', eat, true);
+      off();
     };
+    const fresh = () => off();
     window.addEventListener('click', eat, true);
-    setTimeout(() => window.removeEventListener('click', eat, true), 650);
+    setTimeout(() => window.addEventListener('pointerdown', fresh, true), 0);
+    setTimeout(off, 500);
   }
 
   // 추천 = 곧바로 주문 확정. 취향 적중이면 손님이 기뻐하는 연출(onMatch)과 함께, 대사는 손님 말풍선으로

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { studioBackground } from './Diorama.js';
 import { installToon } from './Toon.js';
+import { viewport, onViewportChange } from './Viewport.js';
 
 // 스테인리스·유리 반사용 간단한 실내 환경맵 (r128 코어 PMREM 사용)
 export function makeEnvironment(renderer) {
@@ -38,7 +39,7 @@ export class SceneManager {
   constructor(container) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); // v15: 모바일 웹뷰 VRAM 보호
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(viewport().w, viewport().h); // v17: visualViewport 기준
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
@@ -72,8 +73,8 @@ export class SceneManager {
     this.saved = null;
     this.minZoom = 1.0;
     this.maxZoom = 4.2;
-    this.w = window.innerWidth || 800;
-    this.h = window.innerHeight || 600;
+    this.w = viewport().w || 800;
+    this.h = viewport().h || 600;
     // 9차: 조리 중에는 화면 일부(가로 = 왼쪽 68%, 세로 = 위쪽 60%)만 3D 쇼케이스 뷰포트로 쓰고 나머지는 사이드바.
     // 카메라 중심(lookAt)이 그 뷰포트 한가운데에 오도록 정사영 프러스텀을 옮긴다. (rect: 화면 대비 0~1 비율)
     this.rect = { x0: 0, x1: 1, y0: 0, y1: 1 };
@@ -84,11 +85,11 @@ export class SceneManager {
     this.zoom = this.zoomTarget = this.fitZoom();
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
+    onViewportChange(() => this.resize()); // 주소창 · 툴바가 접히고 펴질 때
   }
 
   resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const { w, h } = viewport();
     if (w < 2 || h < 2) return; // 숨겨진 창 등 크기가 0일 때는 무시
     this.w = w;
     this.h = h;

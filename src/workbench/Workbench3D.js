@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { viewport, onViewportChange } from '../core/Viewport.js';
 
 // v15 조리대 GPU 자원 회수: 열려 있는 동안 무대에 한 번이라도 올라온 지오메트리 · 재질 · 본 텍스처를 모아 두었다가
 // 닫을 때 (서빙할 접시만 빼고) 한꺼번에 해제한다. 단계가 바뀌며 무대에서 조용히 빠진 도구 · 조각도 놓치지 않는다
@@ -105,8 +106,7 @@ export class Workbench3D {
       <div class="wb-tools"></div>
       <aside class="wb-side">
         <div class="wb-bottom">
-          <div class="wb-inst"><b></b><p></p></div>
-          <div class="wb-meter"></div>
+          <div class="wb-row1"><div class="wb-inst"><b></b><p></p></div><div class="wb-meter"></div></div>
           <div class="wb-actions"></div>
         </div>
         <div class="wb-result hidden"></div>
@@ -114,6 +114,10 @@ export class Workbench3D {
       <div class="wb-pops"></div>`;
     root.appendChild(el);
     this.el = el;
+    // v17: 하단 패널 높이가 바뀌면(단계 · 버튼 · 줄바꿈) 3D 화면과 도구 위치를 바로 맞춘다
+    const reflow = () => this.isOpen && this.applyViewRect();
+    if (window.ResizeObserver) new ResizeObserver(reflow).observe(el.querySelector('.wb-side'));
+    onViewportChange(reflow);
     this.q = (s) => el.querySelector(s);
     this.q('.wb-close').addEventListener('click', () => this.cancel());
     const touch = this.q('.wb-touch');
@@ -138,14 +142,16 @@ export class Workbench3D {
 
   // 3D 뷰포트 영역: 가로 = 왼쪽 68%, 세로 = 위쪽 60%
   applyViewRect() {
-    // v16: 하단 바는 120px(+안전 영역) 하드락, 화면의 18% 를 넘지 않는다. 실제 렌더 높이를 그대로 쓴다
+    // v17: 하단 패널은 내용만큼(자르지 않음). 실제 렌더 높이를 그대로 3D 뷰포트에서 뺀다
     const side = this.q('.wb-side');
-    const bar = Math.min(side?.offsetHeight || 120, this.sm.h * 0.18);
+    const bar = Math.min(side?.offsetHeight || 110, this.sm.h * 0.45);
+    this.el.style.setProperty('--bar', `${Math.round(bar)}px`);
     this.sm.setViewRect({ x0: 0, x1: 1, y0: 0, y1: 1 - bar / this.sm.h });
   }
 
   setNdc(e) {
-    this.ndc.set((e.clientX / this.sm.w) * 2 - 1, -(e.clientY / this.sm.h) * 2 + 1);
+    const v = viewport();
+    this.ndc.set(((e.clientX - v.left) / this.sm.w) * 2 - 1, -((e.clientY - v.top) / this.sm.h) * 2 + 1);
   }
 
   // ───────── 벤치가 쓰는 도구 ─────────
