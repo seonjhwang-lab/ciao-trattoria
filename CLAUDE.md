@@ -31,11 +31,14 @@ npm run fetch-assets # Kenney CC0 모델 다시 받기 → public/assets/models/
 1. **Native Portrait 세로 고정.** 가로 모드(CSS 회전) 는 거절된 방식. 화면은 `100dvh`, 조리대는 위 3D + 아래 바(`min(26%, 185px)`).
 2. **`OutlineEffect` 사용 금지** (v15). 메쉬마다 외곽선 복제본을 쌓아 모바일 웹뷰가 튕겼다. 렌더는 `renderer.render(scene, camera)` 단일 패스. `.hdr` / `RGBELoader` 도 금지. 픽셀 비율 ≤ 1.25, 그림자 맵 512.
 3. **표준 `<button type="button">` + `addEventListener('click')` 만.** 전역 touchstart/touchend/pointercancel 가로채기, `elementFromPoint` 재탐색, 디바운스 락, UI 위 `preventDefault` 금지 (v12 · v14 의 커스텀 터치 매니저는 실기에서 탭을 먹통으로 만들어 폐기). `src/ui/Tap.js` 의 `bindTap` 은 이름만 남은 순수 click 래퍼. 버튼 안 아이콘/글씨는 CSS `#ui button * { pointer-events: none }`. 매장 3D 탭은 캔버스 자신의 pointer 이벤트로만 판정.
+   - **예외 (v16): 메뉴판 `#menu-board`** 의 카테고리 탭 · 메뉴 카드 · 닫기 버튼은 `onpointerdown` 으로 즉시 실행한다(`DialogueUI.press`). 메뉴판은 스크롤 없는 4행 고정 그리드(카드 68px)이고 잠금 조건 · `disabled` 가 없다. 열려 있는 동안 `body.mb-open` 으로 다른 레이어는 `pointer-events: none`, 닫힌 직후 유령 click 을 한 번 흡수한다.
 4. **7×8 매장 + 통합 마스터 조리대 유지.** `GRID_W 7`, `GRID_D 8`, 문은 왼쪽(서쪽) 높은 벽 `DOOR_TILE [0,6]` (현관 마당 없음). 뒤쪽 2줄 = 주방(체커 타일), 3번째 줄 = 패스 카운터 `s1_pass`(x=5 칸이 "Cucina" 아치 통로), 나머지 = 식사 홀. 조리대는 5칸짜리 `s1_master` 하나이고, 메뉴별 조리대는 `order.recipe.station` 으로 고른다. 통로 바로 앞 (5,3) 은 비워 둬야 셰프가 주방을 드나든다.
 5. **이모지 0개.** 아이콘은 전부 SVG (`src/ui/icons.js`). ♥ ♡ ↔ 💬 같은 문자도 `check-emoji` 에서 빌드가 실패한다.
 6. **45° 마름모 아이소 카메라 고정** (yaw π/4, `SceneManager.fitZoom()`), 확대/회전 UI 없음. 손님 얼굴이 보이도록 의자 방향 유지.
 7. **GPU 자원은 반드시 회수.** 손님 퇴장 시 `disposeObject`(스켈레톤 본 텍스처 포함), 조리대 닫을 때 `Workbench3D` 가 무대에 올라왔던 지오메트리 · 재질을 모두 해제(서빙 접시 `keepDish` 제외). 여러 곳에서 재사용하는 캐시 텍스처 · 재질은 `userData.shared = true`. 얼굴 텍스처는 256px 풀(`releaseFace`).
-8. three.js 는 r128 고정. r128 재질에서 스키닝은 `skinning: true` 필요.
+8. **하단 창 높이 하드락 (v16).** 대화창 · 품평 카드 · 조리대 하단 바는 `max-height: 120px` (styles-v16.css). 손님 대사 · 품평은 `src/ui/clampLine.js` 로 28자 이내 1문장만 표시. 메뉴 설명은 레시피의 `desc` (22자 안팎, 명사형). `~라니` 말투 금지 (grep 0건 유지).
+9. **조리 도구는 음식을 뚫지 않는다 (v16).** `src/workbench/toolClear.js` 의 `getFoodTopY` / `keepAbove` 로 매 프레임 도구 실제 최저점을 음식 최고점 위로: 드리즐 · 드레싱 병 노즐 +8cm, 후추통 +10cm, 강판 +3cm, 피자 휠은 윗면에 닿기만.
+10. three.js 는 r128 고정. r128 재질에서 스키닝은 `skinning: true` 필요.
 
 ## 4. 구조와 핵심 파일
 
@@ -82,3 +85,4 @@ public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매�
 - v13: 주방 · 패스 카운터 · 홀 분리, 45° 아이소 복귀, 첫 손님 퇴장 시 멈춤 수정.
 - v14: 7x8 확장, 현관 제거(서쪽 벽 출입문), 손님이 벽 뒤에서 걸어 들어옴.
 - v15: 튕김 대응(외곽선 · HDR 제거, 본 텍스처 · 조리대 GPU 누수 수정), 표준 click 복원, 메뉴판 탭 잠금 제거, 반투명 대화 · 품평 창, 리액션 ON/OFF, 슬라이스 웨지 → 중력 → 감쇠 탄성 + 겹침.
+- v16: 메뉴판 무스크롤 · pointerdown 재작성, 하단 창 120px 하드락 + 28자 1문장, `~라니` 문구 삭제 · 메뉴 설명 교체, 소스병 · 도구 관통 차단(toolClear.js).
