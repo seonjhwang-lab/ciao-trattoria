@@ -11,7 +11,7 @@
 - 사양 문서는 사용자가 붙여 넣는 "N차 지시서"(Gemini 작성)로 내려온다. 지시서의 번호 항목을 빠짐없이 반영하고, 마지막의 검증 지침을 375×812 에서 확인한다.
 - 출시 경로 두 가지:
   1. **GitHub Pages** (실기 테스트용, `main` push 시 자동 배포 — `.github/workflows/deploy.yml`)
-  2. **Claude 아티팩트** 단일 HTML (`public/artifact.html` → 스크래치패드 `strip.cjs` 로 doctype/html/head/body 태그를 벗긴 사본을 발행). 링크: https://claude.ai/artifact/D68YgE1MvjZZ9JXke2TCFW
+  2. **Claude 아티팩트** 단일 HTML (`public/artifact.html` → `scripts/strip-artifact.cjs` 로 doctype/html/head/body 태그를 벗긴 사본을 발행). 링크: https://claude.ai/artifact/D68YgE1MvjZZ9JXke2TCFW
 
 ## 2. 명령어
 
@@ -77,7 +77,7 @@ src/workbench/
   BoardBench.js            샌드위치 (썰기 · 바르기 · 바트 플레이팅 · 후추 · 반 자르기)
   Ingredient3D.js          썰 수 있는 재료 · 자연스러운 슬라이스 쓰러짐(stepFall)
   EspressoBench.js / PastaBench.js / PizzaBench.js / SaladBench.js
-src/ui/                    HUD(보유 자금 · 리액션 토글 · 메뉴) · DialogueUI(대화 · 메뉴판) · Trattoria(카탈로그 · 정산 · 편지) · Overlays(인트로 · 확인 · 품평 카드) · styles-v*.css (나중 파일이 앞 파일을 덮는다, 최신 = styles-v15.css)
+src/ui/                    HUD(보유 자금 · 리액션 토글 · 메뉴) · DialogueUI(대화 · 메뉴판) · Trattoria(카탈로그 · 정산 · 편지) · Overlays(인트로 · 확인 · 품평 카드) · styles-v*.css (나중 파일이 앞 파일을 덮는다, 최신 = styles-v17.css)
 scripts/                   build-artifact.mjs · check-emoji.mjs · fetch-assets.mjs · mixamo/ (FBX → mixamo_anims.glb 변환)
 public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매니페스트
 ```
@@ -103,3 +103,4 @@ public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매�
   - 매장: 3번째 테이블 (5,6) 이 매장을 동서로 갈라 셰프 · 손님 동선 단절 → (6,6) 으로 이동(`LAYOUT_VER 13`, 저장된 테이블 세트 다시 입힘) · 의자 빼는 거리 · 서는 자리를 실제 메쉬 치수로(`CafeAI.pullPlan`, 벨벳 의자 겹침) · 뒤쪽 접근 손님이 빼낸 의자를 대각선으로 뚫음(옆 접근 우선 + 우회 지점 `via`) · 일어나는 중인 자리에 다음 손님 배정 금지 · 출입문 바닥을 가로지르던 걸레받이 · 가구에 둘러싸인 빈 칸은 탭 이동 대상에서 제외 · 키보드 이동이 맨 앞줄에 못 가던 범위(HALF_Z).
   - 조리대: 겨누는 칼 · 톱질 칼 날끝이 도마에(최대 2.8cm), 반 자르기 칼이 샌드위치에 박힘(`keepAbove`) · 후추통이 BLT 위 6cm 까지(트윈 뒤 `postTween` 으로 매 프레임, 돌아가는 길 포함) · 국자가 테이블 아래 선반 속에서 대기 · 피자 필이 화덕 돌턱 · 바닥 · 반죽판을 뚫음(턱 넘는 경로) · 반죽판이 화덕 돌턱과 겹침(도우 자리 4cm 앞으로) · 스테인리스 백스플래시가 화덕 돔 관통 · 화덕 받침과 테이블 겹침 · 아치 베벨 · 불꽃이 바닥 아래로 · 샐러드 서버 · 잎이 볼 바닥을 뚫음(`liftAboveSurface`) · 밀대가 프라이팬 속에 놓임 · 재료 밧드 밖으로 삐져나온 상추 · 루꼴라(자동 맞춤) · 포터필터 · 원두 더미가 그라인더 몸통 속에, 토출구가 더미 속에(2.5cm 앞으로 · 토출구 2cm 위로).
   - 완성 요리: 시저 샐러드 잎 끝이 테이블 속 2.9mm(`BistroDish.liftBelowBase`).
+- v20: 전체 검토(코드 리뷰 + 5종 감사 + 9일 연속 플레이 · 저장/재접속 · GPU 메모리 250/35 고정 확인). 고친 것: 바닥 탭 물결이 두 겹으로 생기던 것 · 펜던트 조명/와인 랙을 다시 만들 때 GPU 자원 미해제 · 손님 터치 판정 공용 재질(`HIT_MAT`)이 손님 퇴장 때마다 해제되던 것(`userData.shared`) · 단골 Lv.3 선물(30,000원 · 아늑함)이 2.2초 뒤 지급이라 그 사이 창을 닫으면 사라지던 것(즉시 지급 + 저장, 편지만 나중에) · 단골 수첩이 끝없이 늘던 것(`GuestGenerator.prune`, 호감도 낮고 오래된 순으로 40명 상한) · 수첩 정렬을 호감도 우선으로. 아티팩트 사본 스크립트는 `scripts/strip-artifact.cjs <public/artifact.html> <출력>` 로 저장소에 보관(스크래치패드는 세션이 바뀌면 사라진다).

@@ -12,7 +12,7 @@ const THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.mi
 const EX = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/';
 const CDN_EXTRAS = ['loaders/GLTFLoader.js', 'utils/SkeletonUtils.js'].map((p) => EX + p); // v15: RGBELoader · OutlineEffect 제거
 
-// 'three' import → 전역 THREE, examples 모듈 → 전역 THREE.GLTFLoader / RGBELoader / SkeletonUtils (CDN 스크립트)
+// 'three' import → 전역 THREE, examples 모듈 → 전역 THREE.GLTFLoader / SkeletonUtils (CDN 스크립트)
 const EXAMPLES = new Set(['GLTFLoader', 'SkeletonUtils']);
 const threeGlobal = {
   name: 'three-global',
@@ -115,4 +115,4 @@ const html = src
 if (!html.includes('id="bistro-css"') || html.indexOf('id="bistro-css"') > html.indexOf('<div id="app">')) throw new Error('[build-artifact] CSS 가 본문 맨 앞에 들어가지 않았어요');
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
-console.log(`${path.relative(ROOT, OUT)} (${(html.length / 1024).toFixed(0)}KB) — Three.js r128 CDN + GLTF/RGBE/SkeletonUtils · 내장 모델 ${Object.keys(models).length}개 · HDRI ${hdr ? 'O' : 'X'} · 캐릭터 GLB ${Object.keys(chars).length}개`);
+console.log(`${path.relative(ROOT, OUT)} (${(html.length / 1024).toFixed(0)}KB) — Three.js r128 CDN + GLTFLoader/SkeletonUtils · 내장 모델 ${Object.keys(models).length}개 · HDRI ${hdr ? 'O' : 'X'} · 캐릭터 GLB ${Object.keys(chars).length}개`);

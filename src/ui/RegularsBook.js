@@ -30,7 +30,7 @@ export class RegularsBook {
   }
 
   open() {
-    const list = Object.values(this.state.book ?? {}).sort((a, b) => b.sCount - a.sCount || b.visits - a.visits);
+    const list = Object.values(this.state.book ?? {}).sort((a, b) => (b.aff ?? 0) - (a.aff ?? 0) || b.sCount - a.sCount || b.visits - a.visits);
     this.el.querySelector('header small').textContent = list.length ? `단골 ${list.length}명 · 다시 오면 먼저 알아보고 인사해요` : '아직 비어 있어요';
     const box = this.el.querySelector('.book-list');
     box.innerHTML = '';

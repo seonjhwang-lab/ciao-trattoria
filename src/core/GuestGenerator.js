@@ -6,6 +6,8 @@ import { randomLook } from './Character.js';
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const shuffle = (a) => [...a].sort(() => Math.random() - 0.5);
 let gid = 1;
+// 수첩은 가장 친한 단골 위주로 최대 40명 (저장 용량 · 수첩 화면이 끝없이 늘지 않게)
+const BOOK_MAX = 40;
 
 export class GuestGenerator {
   constructor(state) {
@@ -118,6 +120,18 @@ export class GuestGenerator {
       aff: prev?.aff ?? 0, // v12 호감도 하트는 유지
       gift: prev?.gift ?? false,
     };
+    this.prune(persona.id);
     return !prev;
+  }
+
+  // 수첩이 가득 차면 호감도 · 방문이 가장 적고 가장 오래된 손님부터 뺀다 (방금 적은 손님 · 매장에 있는 손님은 남긴다)
+  prune(keepId) {
+    const book = this.state.book;
+    const ids = Object.keys(book);
+    if (ids.length <= BOOK_MAX) return;
+    const here = new Set(this.state.presentIds ?? []);
+    const rank = (b) => (b.aff ?? 0) * 1000 + (b.sCount ?? 0) * 50 + (b.visits ?? 0) * 10 + (b.day ?? 0) * 0.01;
+    const out = ids.filter((id) => id !== keepId && !here.has(id)).sort((a, b) => rank(book[a]) - rank(book[b]));
+    for (const id of out.slice(0, ids.length - BOOK_MAX)) delete book[id];
   }
 }

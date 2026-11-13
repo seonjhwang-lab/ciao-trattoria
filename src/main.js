@@ -21,7 +21,7 @@ import { DayCycle } from './core/DayCycle.js';
 import { GridSystem, worldToTile, tileCenter } from './core/GridSystem.js';
 import { WallCutaway } from './core/WallCutaway.js';
 import { FurnitureManager } from './core/FurnitureManager.js';
-import { CafeAI } from './core/CafeAI.js';
+import { CafeAI, disposeObject } from './core/CafeAI.js';
 import { Effects } from './core/Effects.js';
 import { BuildController } from './core/BuildMode.js';
 import { SoundManager } from './core/SoundManager.js';
@@ -328,6 +328,7 @@ async function boot() {
     return [...furniture.items.values()].filter((i) => i.def.table);
   }
   function buildPendants() {
+    for (const ch of [...decorRoot.children]) disposeObject(ch); // 다시 만들 때 예전 지오메트리 · 재질을 GPU 에서 해제
     decorRoot.clear();
     pendantLamps = [];
     if (!progress.owns('props', 'pendant')) return refreshLamps();
@@ -358,7 +359,10 @@ async function boot() {
   let wineRack = null;
   function buildWine() {
     const north = walls.northGroup;
-    if (wineRack) wineRack.parent?.remove(wineRack);
+    if (wineRack) {
+      wineRack.parent?.remove(wineRack);
+      disposeObject(wineRack);
+    }
     wineRack = null;
     if (!north || !progress.owns('props', 'wine')) return;
     const g = new THREE.Group();
@@ -477,9 +481,10 @@ async function boot() {
   buildPendants();
   // 단골 Lv.3 감사 편지 + 선물
   bus.on('regular:lv3', (e) => {
+    state.addMoney(30000);
+    progress.p.gifts += 1;
+    scheduleSave();
     setTimeout(() => {
-      state.addMoney(30000);
-      progress.p.gifts += 1;
       letter.show(
         {
           name: e.name,
@@ -722,14 +727,10 @@ async function boot() {
     if (!ray.ray.intersectPlane(floorPlane, v)) return;
     // 쟁반을 들고 있을 때 서빙 링 근처 바닥 = 서빙
     const carryTo = ai.chef.carry?.order.customer;
-    if (carryTo && serveRing.visible && Math.hypot(v.x - serveRing.position.x, v.z - serveRing.position.z) < 0.95) {
-      ripple(v);
-      return tapCustomer(carryTo);
-    }
+    if (carryTo && serveRing.visible && Math.hypot(v.x - serveRing.position.x, v.z - serveRing.position.z) < 0.95) return tapCustomer(carryTo);
     const tile = ai.nearestWalkable(worldToTile(v.x, v.z));
     if (!tile) return;
-    ripple(v);
-    goTo(tile, {}, null);
+    goTo(tile, {}, null); // 물결은 탭 직후 한 번만 (예전엔 여기서 한 번 더 만들어 두 겹으로 겹쳤다)
   }
 
   // ───────── [여기를 탭하여 서빙] 타겟 링 (쟁반을 들고 있을 때 주문한 손님 테이블 바닥) ─────────

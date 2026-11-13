@@ -352,6 +352,7 @@ export class CafeAI {
     const available = this.available();
     if (!available.length) return false;
     this.state.presentNames = this.customers.map((c) => c.persona.name);
+    this.state.presentIds = [...present];
     const seats = this.freeSeats().sort(() => Math.random() - 0.5);
     for (const seat of seats) {
       seat.chair.plan = null; // 가구 배치가 바뀌었을 수 있으니 매번 새로 잰다
@@ -1095,6 +1096,7 @@ function tasteLine(recipe, g, seed = 0) {
 // 씬에서 뺀 메쉬의 지오메트리·재질·텍스처를 GPU 에서 해제 (공유 자원은 다음에 쓸 때 다시 올라간다)
 // 터치 판정 전용 메쉬 (그리지 않고 레이캐스트만 맞는다)
 const HIT_MAT = new THREE.MeshBasicMaterial({ visible: false });
+HIT_MAT.userData.shared = true; // 모든 손님이 함께 쓰는 재질 — 손님이 나갈 때 해제하지 않는다
 export function hitbox(geo, y = 0) {
   const m = new THREE.Mesh(geo, HIT_MAT);
   m.position.y = y;
