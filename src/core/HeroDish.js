@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildDolceDish } from './DolceDish.js';
 import { traceLoaf } from '../workbench/benchTextures.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -1038,7 +1039,8 @@ export function buildHeroDish(recipeId, { art = null } = {}) {
       g = coffeeCup(art ?? 'heart');
       break;
     default:
-      return null;
+      g = buildDolceDish(recipeId); // v21 돌체 2종
+      if (!g) return null;
   }
   g.traverse((o) => {
     if (o.isMesh) {

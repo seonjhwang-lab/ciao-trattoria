@@ -46,8 +46,8 @@ npm run fetch-assets # Kenney CC0 모델 다시 받기 → public/assets/models/
     1. UI 잘림: `T.auditScreens()` — 360×520 · 375×620 · 390×844 · 412×732 네 뷰포트 모두 0건.
     2. 좌석 · 동선(정적): `T.setupFull(set)` 후 `T.auditSeats()` — 테이블 세트 3종(bistro · velvet · rattan) × 3번째 테이블 포함 6좌석. 뺀 의자 vs 가구 · 벽 · 다른 의자, 손님이 서는 자리, 문까지 길, 셰프가 모든 좌석에 서빙 거리로 가는 길, 동선 단절.
     3. 이동 관통(동적): `T.auditMotion(n)` — 세트마다 손님 10명 이상. 셰프 · 손님 원기둥(r 0.14m)이 가구 · 카운터 · 벽을 뚫는 프레임, 빠진 의자 vs 다른 사람, 같은 좌석 이중 배정, 진행 멈춤.
-    4. 조리 도구 관통: `T.auditBenches()` — 14개 메뉴 전 단계를 실제 손짓(드래그 · 탭 · 길게 누르기 · 레버)으로 진행하며 매 프레임: 도구가 도마 · 접시 · 그릇 · 팬 · 컵 · 화덕 · 작업대 속으로 3mm 넘게 들어가는지, 병 · 후추통 · 강판이 음식 위 여유(8 · 10 · 3cm)를 지키는지. 조리대를 열 때 고정물끼리 겹침(`B3.staticOverlap`)도 본다. '속' 판정은 위 · 아래로 쏜 광선이 만나는 면의 방향으로 한다(덮개 아래 빈 공간은 '밖'). 결과 `coverage` 의 `*` 는 자동 조작으로 못 끝내 강제로 넘긴 단계 — 0개가 목표.
-    5. 완성 요리 높이: `T.auditDishes()` — 14종을 셰프 쟁반과 모든 좌석 테이블에 놓았을 때 파묻힘 · 뜸 ±3mm 이내.
+    4. 조리 도구 관통: `T.auditBenches()` — 16개 메뉴(v21 돌체 2종 포함) 전 단계를 실제 손짓(드래그 · 탭 · 길게 누르기 · 레버)으로 진행하며 매 프레임: 도구가 도마 · 접시 · 그릇 · 팬 · 컵 · 화덕 · 작업대 속으로 3mm 넘게 들어가는지, 병 · 후추통 · 강판이 음식 위 여유(8 · 10 · 3cm)를 지키는지. 조리대를 열 때 고정물끼리 겹침(`B3.staticOverlap`)도 본다. '속' 판정은 위 · 아래로 쏜 광선이 만나는 면의 방향으로 한다(덮개 아래 빈 공간은 '밖'). 결과 `coverage` 의 `*` 는 자동 조작으로 못 끝내 강제로 넘긴 단계 — 0개가 목표.
+    5. 완성 요리 높이: `T.auditDishes()` — 16종을 셰프 쟁반과 모든 좌석 테이블에 놓았을 때 파묻힘 · 뜸 ±3mm 이내.
     - 새 가구 · 테이블 세트 · 해금 배치를 넣으면 `T.setupFull` 에 추가하고, 새 조리 도구는 벤치 속성으로 두거나 `userData.tool = '이름'` 을 달아 `T.B3.config` 가 찾게 한다.
     - 감사는 개발 서버(`npm run dev`)에서 `public/__t.js` 로 복사해 실행하고(긴 감사는 `T.auditBenches().then(r => window.__B = r)` 처럼 백그라운드로), 끝나면 `public/__t.js` 를 지운 뒤 빌드한다. 감사 중에 `src` 를 고치면 Vite 가 페이지를 새로 고쳐 감사가 끊긴다.
 
@@ -77,7 +77,7 @@ src/workbench/
   BoardBench.js            샌드위치 (썰기 · 바르기 · 바트 플레이팅 · 후추 · 반 자르기)
   Ingredient3D.js          썰 수 있는 재료 · 자연스러운 슬라이스 쓰러짐(stepFall)
   EspressoBench.js / PastaBench.js / PizzaBench.js / SaladBench.js
-src/ui/                    HUD(보유 자금 · 리액션 토글 · 메뉴) · DialogueUI(대화 · 메뉴판) · Trattoria(카탈로그 · 정산 · 편지) · Overlays(인트로 · 확인 · 품평 카드) · styles-v*.css (나중 파일이 앞 파일을 덮는다, 최신 = styles-v17.css)
+src/ui/                    HUD(보유 자금 · 리액션 토글 · 메뉴) · DialogueUI(대화 · 메뉴판) · Trattoria(카탈로그 · 정산 · 편지) · Overlays(인트로 · 확인 · 품평 카드) · styles-v*.css (나중 파일이 앞 파일을 덮는다, 최신 = styles-v21.css) · Tycoon(오늘의 특선 선택창 · 등급 & 업적 · 축하 카드 · 예고 배너)
 scripts/                   build-artifact.mjs · check-emoji.mjs · fetch-assets.mjs · mixamo/ (FBX → mixamo_anims.glb 변환)
 public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매니페스트
 ```
@@ -104,3 +104,14 @@ public/assets/             Kenney CC0 GLB · mixamo_anims.glb · 텍스처 매�
   - 조리대: 겨누는 칼 · 톱질 칼 날끝이 도마에(최대 2.8cm), 반 자르기 칼이 샌드위치에 박힘(`keepAbove`) · 후추통이 BLT 위 6cm 까지(트윈 뒤 `postTween` 으로 매 프레임, 돌아가는 길 포함) · 국자가 테이블 아래 선반 속에서 대기 · 피자 필이 화덕 돌턱 · 바닥 · 반죽판을 뚫음(턱 넘는 경로) · 반죽판이 화덕 돌턱과 겹침(도우 자리 4cm 앞으로) · 스테인리스 백스플래시가 화덕 돔 관통 · 화덕 받침과 테이블 겹침 · 아치 베벨 · 불꽃이 바닥 아래로 · 샐러드 서버 · 잎이 볼 바닥을 뚫음(`liftAboveSurface`) · 밀대가 프라이팬 속에 놓임 · 재료 밧드 밖으로 삐져나온 상추 · 루꼴라(자동 맞춤) · 포터필터 · 원두 더미가 그라인더 몸통 속에, 토출구가 더미 속에(2.5cm 앞으로 · 토출구 2cm 위로).
   - 완성 요리: 시저 샐러드 잎 끝이 테이블 속 2.9mm(`BistroDish.liftBelowBase`).
 - v20: 전체 검토(코드 리뷰 + 5종 감사 + 9일 연속 플레이 · 저장/재접속 · GPU 메모리 250/35 고정 확인). 고친 것: 바닥 탭 물결이 두 겹으로 생기던 것 · 펜던트 조명/와인 랙을 다시 만들 때 GPU 자원 미해제 · 손님 터치 판정 공용 재질(`HIT_MAT`)이 손님 퇴장 때마다 해제되던 것(`userData.shared`) · 단골 Lv.3 선물(30,000원 · 아늑함)이 2.2초 뒤 지급이라 그 사이 창을 닫으면 사라지던 것(즉시 지급 + 저장, 편지만 나중에) · 단골 수첩이 끝없이 늘던 것(`GuestGenerator.prune`, 호감도 낮고 오래된 순으로 40명 상한) · 수첩 정렬을 호감도 우선으로. 아티팩트 사본 스크립트는 `scripts/strip-artifact.cjs <public/artifact.html> <출력>` 로 저장소에 보관(스크래치패드는 세션이 바뀌면 사라진다).
+- v21: 타이쿤 확장 (지시서 4대 시스템).
+  - 소리: `core/SoundEngine.js`(예전 SoundManager). 버스 2개 — master(효과음) · musicBus(배경음악, 나일론 기타 Karplus-Strong + 마림바 8마디 반복). 메뉴에 [배경음악] · [효과음] 토글 분리(`state.music` · `state.sound` 저장). 진동은 효과음 토글을 따른다. 새 효과음: orderBell · register · celebrate · drizzleStart/Stop · sift · wheel · twinkle, 팬 토스 때 boil 루프.
+  - 서빙된 요리 이펙트: `core/DishFx.js` — 따뜻한 요리(pasta · pizza · espresso) 김 + S등급 금빛 별. 스프라이트 풀(26 + 18)을 돌려 써서 GPU 자원이 늘지 않는다. 아이소 화면이 멀어서 입자를 실제보다 크게 그린다.
+  - 오늘의 특선: 하루 시작(정산서 [다음 날] · 접속 직후)에 `SpecialPicker` 가 뜨고 고를 때까지 시간이 멈춘다. `Progress.priceOf(recipe)` = 기본가 × 식자재 등급(+15%/단계) × 특선(+30%) — 가격을 쓰는 곳은 전부 이 함수로. 특선 메뉴 취향 손님 40%, S/A 대접 시 호감도 +1 추가.
+  - 식자재 등급: 카탈로그 [식자재 & 숙련도] 탭, 분야 6개(조리대 id) × Lv.1~4(25,000 / 50,000 / 90,000원). 판정 여유는 `Workbench3D.stepDone` 에서 모자란 점수의 12%/단계를 채운다.
+  - 5성 등급 · 업적: `RANKS`(누적 매출 · S등급 접시 · 아늑함 세 조건 모두) · `ACHIEVEMENTS` 12종(등급 & 업적 창에서 보상 받기). `main.checkProgress()` 가 결제 · 구매 뒤 승급 카드와 업적 알림을 띄운다. 예전 저장은 누적 매출을 접시 수 × 9,000원으로 어림하고 등급은 조용히 맞춘다.
+  - VIP 미식가: 3의 배수 날의 5번째 손님(`GuestGenerator.critic`, 중절모 `hat: 'fedora'` + 수트). A등급 이상이면 +30,000원 · 아늑함 +0.3(`vipWins`) · 미식 매거진 카드. 못 미쳐도 벌칙 없음(스트레스 없음 원칙). 수첩에는 적지 않는다.
+  - 단골 특별 의뢰: 호감도 Lv.1~2 단골이 40% 확률로 `persona.request`. S등급이면 팁 2배 + 호감도 다음 레벨로.
+  - Stage 5 돌체(120,000원): station `dolce` = BoardBench 재사용. 티라미수(plate → drizzle espresso → plate → dust) · 판나코타(plate → drizzle coulis → plate). 돌체일 때는 오일 · 꿀 · 후추통 대신 `buildDolceTools` 의 소스 병(`pitcher`) · 코코아 체(`sifter`)를 두고 `userData.tool` 로 감사가 찾는다. 플레이팅 단계가 두 번이라 `plate()` 는 그 단계 `layers` 의 팬만 다룬다. 3D 모형 · 완성 접시는 `core/DolceDish.js`. 메뉴판 탭은 6개(짧은 이름).
+  - 고친 것: 완성 결과창 위에 마지막 단계 패널([완료] 버튼)이 그대로 남던 문제(v17 `display:flex !important` 가 `.hidden` 을 이김) · 한 번 온 손님의 대화 메모(`state.regulars`)가 저장에 끝없이 쌓이던 것 · 트윈 정적 slerp 경고.
+  - 감사 도구: `T.clearModals()`(특선 선택창 · 축하 카드 등을 닫아 진행), `T.auditScreens` 가 새 화면(특선 6탭 · 배너 · 메뉴 · 등급/업적 · 식자재 탭 · 카드 2종)까지 110개 화면을 보고 `T._cov` 에 검사한 화면을 남긴다. 결과: 4개 뷰포트 0건, 좌석 · 동선 3세트 0건, 조리 도구 16메뉴 0건(강제 진행 0), 완성 요리 16종 0건, GPU 메모리 328/38 고정.

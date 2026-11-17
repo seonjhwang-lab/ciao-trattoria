@@ -44,6 +44,8 @@ export class HUD {
       <div class="hm-card" role="menu">
         <button data-m="book">${icon('book')}<span>단골 수첩</span><i class="hm-n"></i></button>
         <button data-m="build">${icon('hammer')}<span>꾸미기 & 설비 해금</span></button>
+        <button data-m="rank">${icon('trophy')}<span>트라토리아 등급 & 업적</span><i class="hm-n hm-ach"></i></button>
+        <button data-m="music">${icon('note')}<span>배경음악</span><small></small></button>
         <button data-m="sound">${icon('soundOn')}<span>효과음</span><small></small></button>
         <button data-m="restart">${icon('restart')}<span>처음부터 하기</span></button>
       </div>`;
@@ -64,7 +66,10 @@ export class HUD {
       });
     on('book', () => actions.openBook());
     on('build', () => actions.openCatalog());
-    on('sound', () => actions.toggleSound());
+    on('rank', () => actions.openRank());
+    // 배경음악 · 효과음 토글은 메뉴를 닫지 않고 바로 바뀐다
+    pop.querySelector('[data-m="music"]').onclick = () => actions.toggleMusic();
+    pop.querySelector('[data-m="sound"]').onclick = () => actions.toggleSound();
     on('restart', () => actions.askRestart());
 
     const tickets = document.createElement('div');
@@ -73,7 +78,8 @@ export class HUD {
     this.ticketBox = tickets;
 
     bus.on('state:money', () => this.refreshMoney(true));
-    bus.on('state', (k) => ['mode', 'sound', 'book'].includes(k) && this.refreshToggles());
+    bus.on('state', (k) => ['mode', 'sound', 'music', 'book', 'ach'].includes(k) && this.refreshToggles());
+    bus.on('progress', () => this.refreshToggles());
     bus.on('orders:changed', () => this.refreshTickets());
     this.refreshMoney(false);
     this.refreshToggles();
@@ -95,6 +101,14 @@ export class HUD {
     const b = this.pop.querySelector('[data-m="build"]');
     const n = Object.keys(s.book ?? {}).length;
     this.pop.querySelector('.hm-n').textContent = n ? String(n) : '';
+    // v21: 받을 업적 보상 수 (메뉴 버튼에도 점)
+    const ach = this.actions.unclaimed?.() ?? 0;
+    this.pop.querySelector('.hm-ach').textContent = ach ? String(ach) : '';
+    this.top.querySelector('.hud-menu-btn').classList.toggle('dot', ach > 0);
+    const mus = this.pop.querySelector('[data-m="music"]');
+    mus.classList.toggle('on', !!s.music);
+    mus.querySelector('.ic').outerHTML = icon(s.music ? 'note' : 'musicOff');
+    mus.querySelector('small').textContent = s.music ? 'ON' : 'OFF';
     const snd = this.pop.querySelector('[data-m="sound"]');
     snd.classList.toggle('on', s.sound);
     snd.querySelector('.ic').outerHTML = icon(s.sound ? 'soundOn' : 'soundOff');

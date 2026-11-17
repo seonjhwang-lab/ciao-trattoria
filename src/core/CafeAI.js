@@ -11,7 +11,12 @@ import { icon } from '../ui/icons.js';
 import { releaseFace } from './FaceTextureBuilder.js';
 import { clampLine } from '../ui/clampLine.js';
 import { reactionsOn } from './Settings.js';
-import { getProgress, GUESTS_PER_DAY, Progress, LEVEL_NAME } from './Progress.js';
+import { getProgress, GUESTS_PER_DAY, Progress, LEVEL_NAME, LEVEL_AFF } from './Progress.js';
+import { DishFx } from './DishFx.js';
+
+// v21: 따뜻한 요리(파스타 · 피자 · 커피)는 김이 오르고, 미식가 대접 성공 상금
+const HOT_STATIONS = new Set(['pasta', 'pizza', 'espresso']);
+export const VIP_PRIZE = 30000;
 
 // 1인 오너 셰프 카페.
 // 손님: 입장 → 착석 → 대화를 기다림 → (셰프가 다가가 대화·주문) → 기다림 → (셰프가 직접 서빙) → 감상 → 퇴장
@@ -49,6 +54,7 @@ export class CafeAI {
     this.marker = this.makeMarker();
     this.tableDishes = new Map(); // '테이블id:의자id' → 테이블 위 완성 요리 메쉬
     this.props = this.makeProps();
+    this.dishFx = new DishFx(this.root); // v21 김 · 금빛 별 입자 (풀)
   }
 
   // ───────── 테이블 위 접시 (손님이 일어서면 반드시 치운다) ─────────
@@ -359,7 +365,9 @@ export class CafeAI {
       const ap = this.seatApproach(seat, DOOR_TILE);
       if (!ap) continue;
       const tiles = ap.path;
-      const persona = this.guests.next(available, present);
+      // v21: 3의 배수 날의 마지막(5번째) 손님은 미식 칼럼니스트
+      const vip = !!P && P.isVipDay() && P.p.dayGuests === GUESTS_PER_DAY - 1 && P.p.vipDay !== this.state.day;
+      const persona = this.guests.next(available, present, { vip });
       const a = new Actor(persona.look, { speed: 1.3 });
       // 벽 뒤에서 제 키 그대로 걸어 들어온다 (바닥에서 솟아오르는 연출 없음)
       a.root.position.set(OUT_X, 0, this.door.z);
@@ -479,7 +487,12 @@ export class CafeAI {
         break;
       }
       case 'awaitTalk':
-        if (c.exprT <= 0 || c.t > 2.2) c.bubble.set(`${icon('chat')}<span>${c.persona.name}</span>`, 'talk');
+        if (c.exprT <= 0 || c.t > 2.2) {
+          // v21: 미식가 · 단골 특별 의뢰는 배지로 알아볼 수 있게
+          if (c.persona.vip) c.bubble.set(`${icon('vip')}<span>미식가 ${c.persona.name}</span>`, 'talk vip');
+          else if (c.persona.request) c.bubble.set(`${icon('gift')}<span>특별 의뢰 · ${c.persona.name}</span>`, 'talk request');
+          else c.bubble.set(`${icon('chat')}<span>${c.persona.name}</span>`, 'talk');
+        }
         a.pawn.head.rotation.y = Math.sin(c.t * 0.6 + c.id) * 0.4;
         break;
       case 'talking':
@@ -622,7 +635,7 @@ export class CafeAI {
     c.state = 'ordered';
     c.t = 0;
     this.orders.push(order);
-    this.sound.tap();
+    (this.sound.orderBell ?? this.sound.tap).call(this.sound); // 주문 접수 '딩동'
     this.changed();
     return order;
   }
@@ -645,7 +658,12 @@ export class CafeAI {
 
   react(c) {
     const G = gradeFor(c.order.result.score);
-    const price = c.order.recipe.price;
+    const P0 = getProgress();
+    const special = !!P0?.isSpecial(c.order.recipe); // v21 오늘의 특선 (+30% 는 priceOf 에 들어 있다)
+    const price = P0?.priceOf(c.order.recipe) ?? c.order.recipe.price; // 식자재 등급 · 특선 반영 판매가
+    const good = G.g === 'S' || G.g === 'A';
+    const isVip = !!c.persona.vip;
+    const isRequest = !!c.persona.request;
     const matched = c.order.matched;
     let pay = payment(price, G);
     if (matched) pay += Math.round((price * 0.1) / 100) * 100;
@@ -655,6 +673,12 @@ export class CafeAI {
     const cozyPct = P ? P.tipBonus() : 0;
     const cozyTip = Math.round((price * cozyPct) / 100 / 100) * 100;
     pay += cozyTip;
+    // v21 단골 특별 의뢰: S등급이면 팁 2배
+    const requestWin = isRequest && G.g === 'S';
+    if (requestWin) pay += Math.max(0, pay - Math.round((price * G.pay) / 100) * 100);
+    // v21 미식가: A등급 이상이면 특별 상금
+    const vipWin = isVip && good;
+    if (vipWin) pay += VIP_PRIZE;
     const review = this.dialogue.review(c, G.g);
     const head = c.actor.root.position.clone().setY(2.05);
     this.state.addMoney(pay);
@@ -678,11 +702,17 @@ export class CafeAI {
     if (cozyPct) notes.push(`아늑함 팁 +${cozyPct}%`);
     if (matched) notes.push('취향 적중 +10%');
     if (c.order.optMatched) notes.push('옵션 센스 +5%');
+    if (special) notes.push('오늘의 특선 +30%');
+    if (requestWin) notes.push('특별 의뢰 팁 2배');
+    if (vipWin) notes.push('미식가 특별 상금');
     this.effects.coin(head.clone().setY(2.6), pay, notes.join(' · '));
     this.sound[G.sound]?.();
-    if (G.g !== 'C') setTimeout(() => this.sound.coin(), 500);
+    if (G.g !== 'C') setTimeout(() => (this.sound.register ?? this.sound.coin).call(this.sound), 500); // 결제 금전등록기
+    if (G.g === 'S') this.sound.vibrate?.(22);
     if (G.g !== 'S' && this.state.book?.[c.persona.id]) this.state.book[c.persona.id].visits += 1;
-    if (G.g === 'S') {
+    if (isVip) {
+      // 미식가는 수첩에 적지 않는다 (매번 다른 칼럼니스트)
+    } else if (G.g === 'S') {
       const first = this.guests.register(c.persona, c.order.recipe);
       if (first) getProgress()?.p.dayStats.newRegulars.push(c.persona.name);
       bus.emit('state', 'book');
@@ -697,10 +727,18 @@ export class CafeAI {
       if (G.g === 'A') d.A += 1;
       d.sales += pay - Math.max(0, tip);
       d.tips += Math.max(0, tip);
+      P.p.totalSales = Math.max(0, P.p.totalSales ?? 0) + pay; // v21 누적 매출 (등급 · 업적)
     }
-    this.bumpAffinity(c, G.g);
+    // v21: 특선 메뉴를 잘 대접하면 호감도 하트 +1 더, 특별 의뢰 S등급이면 호감도 1레벨 즉시 상승
+    if (!isVip) this.bumpAffinity(c, G.g, { extra: special && good ? 1 : 0, levelUp: requestWin });
+    if (isVip && P) {
+      P.p.vipDay = this.state.day;
+      if (vipWin) P.p.vipWins = (P.p.vipWins ?? 0) + 1;
+      bus.emit('vip:result', { win: vipWin, grade: G.g, name: c.persona.name, recipe: c.order.recipe, prize: VIP_PRIZE });
+    }
+    if (requestWin) setTimeout(() => this.toast(`${c.persona.name} 님 특별 의뢰 성공 · 팁 2배`), 2000);
     bus.emit('tasting', { customer: c, recipe: c.order.recipe, grade: G.g, critique, review: review.special ? line : null, pay, tip, matched });
-    bus.emit('customer:paid', { grade: G.g, pay });
+    bus.emit('customer:paid', { grade: G.g, pay, special, vip: isVip });
     // 다 먹고 감동: 박수 + 만족 표정
     c.state = 'satisfied';
     c.t = 0;
@@ -708,7 +746,7 @@ export class CafeAI {
   }
 
   // v12 단골 호감도: S/A 대접마다 하트 +1 → Lv.1 첫 인연 · Lv.2 단골 친구 · Lv.3 소울 푸드 단골
-  bumpAffinity(c, g) {
+  bumpAffinity(c, g, { extra = 0, levelUp = false } = {}) {
     if (g !== 'S' && g !== 'A') return;
     const book = (this.state.book = this.state.book ?? {});
     let e = book[c.persona.id];
@@ -719,7 +757,8 @@ export class CafeAI {
       getProgress()?.p.dayStats.newRegulars.push(c.persona.name);
     }
     const before = Progress.level(e.aff ?? 0);
-    e.aff = (e.aff ?? 0) + 1;
+    e.aff = (e.aff ?? 0) + 1 + extra;
+    if (levelUp && before < 3) e.aff = Math.max(e.aff, LEVEL_AFF[before + 1]); // 특별 의뢰: 다음 레벨까지 한 번에
     const after = Progress.level(e.aff);
     if (after > before) {
       getProgress()?.p.dayStats.levelUps.push(`${c.persona.name} Lv.${after}`);
@@ -981,6 +1020,8 @@ export class CafeAI {
     this.chef.tray.visible = true;
     this.chef.carry = { order, dish };
     this.chef.actor.pose = 'carry';
+    // v21: 따뜻한 요리는 김이 모락모락, S등급 요리는 금빛 별이 반짝 (쟁반 위 → 테이블 위까지 따라간다)
+    this.dishFx.attach(dish, { hot: HOT_STATIONS.has(order.recipe.station), gold: (result?.grade ?? gradeFor(result?.score ?? 0).g) === 'S' });
     this.changed();
   }
 
@@ -1048,6 +1089,7 @@ export class CafeAI {
     if (this.spawnTimer <= 0) this.spawnTimer = this.trySpawn() ? this.interval() : 4;
     for (const c of [...this.customers]) this.updateCustomer(c, dt);
     this.stepChairs(dt);
+    this.dishFx.update(dt);
   }
 
   // 셰프 애니메이션·발소리는 게임 속도와 무관하게 실시간으로

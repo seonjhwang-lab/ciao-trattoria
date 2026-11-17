@@ -24,6 +24,7 @@ export default {
     { id: 'pasta', name: '생면 파스타 스토브', icon: 'pasta' },
     { id: 'pizza', name: '화덕 피자 오븐', icon: 'pizza' },
     { id: 'salad', name: '가든 샐러드 바', icon: 'salad' },
+    { id: 'dolce', name: '이탈리안 돌체 바', icon: 'dolce' },
     { id: 'master', name: '통합 마스터 조리대', icon: 'knife' },
   ],
 

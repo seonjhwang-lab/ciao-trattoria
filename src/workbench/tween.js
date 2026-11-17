@@ -34,7 +34,7 @@ export class Tweens {
         t.obj.position.lerpVectors(t.p0, t.p1, e);
         t.obj.position.y += Math.sin(u * Math.PI) * t.arc;
       }
-      if (t.q1) THREE.Quaternion.slerp(t.q0, t.q1, t.obj.quaternion, e);
+      if (t.q1) t.obj.quaternion.slerpQuaternions(t.q0, t.q1, e); // r128: 정적 slerp 는 호출마다 경고를 찍는다
       if (t.s1) t.obj.scale.lerpVectors(t.s0, t.s1, e);
       if (u >= 1) {
         this.list.splice(i, 1);

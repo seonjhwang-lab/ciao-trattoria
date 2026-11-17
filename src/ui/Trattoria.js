@@ -1,6 +1,6 @@
 import { icon } from './icons.js';
 import { bindTap } from './Tap.js';
-import { STAGES, CATALOG, GUESTS_PER_DAY } from '../core/Progress.js';
+import { STAGES, CATALOG, GUESTS_PER_DAY, ING_CATS, ING_LEVELS, ING_PRICE_STEP, ING_EASE_STEP } from '../core/Progress.js';
 import { setHidden } from './hiddenGuard.js';
 
 const won = (n) => `${Math.round(n).toLocaleString('ko-KR')}원`;
@@ -23,18 +23,30 @@ export class CatalogUI {
           <button class="cat-x" aria-label="닫기">${icon('close')}</button>
         </header>
         <div class="cat-sum"></div>
+        <div class="cat-tabs" role="tablist">
+          <button type="button" data-t="shop" role="tab">${icon('hammer')}<span>설비 & 인테리어</span></button>
+          <button type="button" data-t="ing" role="tab">${icon('leaf')}<span>식자재 & 숙련도</span></button>
+        </div>
         <div class="cat-body"></div>
       </div>`;
     root.appendChild(el);
     this.el = el;
     bindTap(el.querySelector('.cat-x'), () => this.close());
+    this.tab = 'shop';
+    for (const b of el.querySelectorAll('.cat-tabs button'))
+      bindTap(b, () => {
+        this.tab = b.dataset.t;
+        this.render();
+        el.querySelector('.cat-body').scrollTop = 0;
+      });
   }
 
   get isOpen() {
     return !this.el.classList.contains('hidden');
   }
 
-  open() {
+  open(tab) {
+    if (tab) this.tab = tab;
     this.render();
     setHidden(this.el, false);
     this.el.classList.remove('hidden');
@@ -53,6 +65,13 @@ export class CatalogUI {
       <div class="cs-cozy"><span>아늑함 지수</span><span class="stars">${stars(P.cozy())}</span><em>팁 +${P.tipBonus()}%</em></div>`;
     const body = this.el.querySelector('.cat-body');
     body.innerHTML = '';
+    for (const b of this.el.querySelectorAll('.cat-tabs button')) {
+      const on = b.dataset.t === this.tab;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    body.classList.toggle('ing', this.tab === 'ing');
+    if (this.tab === 'ing') return this.renderIng(body, money);
     const section = (title, sub) => {
       const s = document.createElement('section');
       s.className = 'cat-sec';
@@ -102,11 +121,43 @@ export class CatalogUI {
     }
   }
 
-  card({ ic = '', sw = null, title, desc, price, state, lockText = '' }) {
+  // v21 식자재 & 숙련도: 분야별 식자재 등급 (Lv.1 기본 → Lv.4 미슐랭 시그니처)
+  renderIng(body, money) {
+    const P = this.progress;
+    const note = document.createElement('p');
+    note.className = 'ing-note';
+    note.textContent = `등급마다 그 분야 메뉴 단가 +${Math.round(ING_PRICE_STEP * 100)}% · 조리 판정 여유 +${Math.round(ING_EASE_STEP * 100)}%`;
+    body.appendChild(note);
+    const grid = document.createElement('div');
+    grid.className = 'cat-grid';
+    body.appendChild(grid);
+    for (const c of ING_CATS) {
+      const open = P.unlocked(c.stage);
+      if (!open && c.id === 'dolce' && !P.unlocked('pizza')) continue; // 돌체 바는 화덕까지 연 뒤에 보여 준다
+      const lv = P.ingLevel(c.id);
+      const cur = ING_LEVELS[lv - 1];
+      const nx = P.nextIng(c.id);
+      const pips = `<span class="ing-pips" aria-label="등급 ${lv} / 4">${ING_LEVELS.map((x) => `<i class="${x.lv <= lv ? 'on' : ''}"></i>`).join('')}</span>`;
+      const card = this.card({
+        ic: icon(c.icon),
+        title: `${c.name}${pips}`,
+        desc: `Lv.${lv} ${cur.name}${lv > 1 ? ` · 단가 +${Math.round((lv - 1) * ING_PRICE_STEP * 100)}%` : ''}${nx ? ` → Lv.${nx.lv} ${nx.name}` : ''}`,
+        price: nx?.price ?? 0,
+        state: !open ? 'lock' : !nx ? 'owned' : money >= nx.price ? 'buy' : 'short',
+        lockText: '설비를 먼저 해금해요',
+        ownedText: '최고 등급',
+      });
+      card.classList.add('ing-item');
+      if (open && nx) bindTap(card, () => this.onBuy({ kind: 'ing', id: c.id }));
+      grid.appendChild(card);
+    }
+  }
+
+  card({ ic = '', sw = null, title, desc, price, state, lockText = '', ownedText = '보유 중' }) {
     const c = document.createElement('button');
     c.className = `cat-item s-${state}`;
     const chip = sw ? `<span class="ci-sw" style="background:linear-gradient(135deg, ${sw[0]} 50%, ${sw[1]} 50%)"></span>` : `<span class="ci-ic">${ic}</span>`;
-    const tag = { owned: '보유 중', on: '적용 중', apply: '적용하기', buy: won(price), short: `${won(price)} · 부족`, lock: '잠김' }[state] ?? '';
+    const tag = { owned: ownedText, on: '적용 중', apply: '적용하기', buy: won(price), short: `${won(price)} · 부족`, lock: '잠김' }[state] ?? '';
     c.innerHTML = `${chip}<span class="ci-txt"><b>${title}</b><small>${state === 'lock' ? lockText : desc}</small></span><em class="ci-tag">${price === 0 && state === 'buy' ? '무료' : tag}</em>`;
     if (state === 'short' || state === 'lock') c.setAttribute('aria-disabled', 'true');
     return c;

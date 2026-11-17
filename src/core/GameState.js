@@ -21,7 +21,8 @@ export class GameState {
     this.minutes = 8 * 60;
     this.speed = 1; // 0 | 1 | 2
     this.mode = 'live'; // live | build
-    this.sound = true;
+    this.sound = true; // 효과음
+    this.music = true; // v21 배경음악
     this.weather = 'clear';
     this.regulars = {}; // 손님별 방문/취향 적중 기록
     this.book = {}; // 단골 수첩 (S등급 손님)
@@ -71,6 +72,9 @@ export class GameState {
   }
 
   save(layout) {
+    // 수첩에 없는 한 번 온 손님의 대화 메모는 남기지 않는다 (저장이 끝없이 늘지 않게)
+    const here = new Set(this.presentIds ?? []);
+    for (const id of Object.keys(this.regulars)) if (/^g[0-9a-z]{7,}$/.test(id) && !this.book?.[id] && !here.has(id)) delete this.regulars[id];
     const data = {
       v: 2,
       money: this.money,
@@ -80,6 +84,7 @@ export class GameState {
       day: this.day,
       minutes: this.minutes,
       sound: this.sound,
+      music: this.music,
       weather: this.weather,
       regulars: this.regulars,
       book: this.book,
@@ -100,7 +105,7 @@ export class GameState {
     if (s.regulars) this.regulars = s.regulars;
     if (s.book) this.book = s.book;
     if (s.progress) this.progress = s.progress;
-    for (const k of ['money', 'rep', 'served', 'day', 'minutes', 'sound', 'weather']) {
+    for (const k of ['money', 'rep', 'served', 'day', 'minutes', 'sound', 'music', 'weather']) {
       if (typeof s[k] === typeof this[k]) this[k] = s[k];
     }
     if (s.grades) this.grades = { ...this.grades, ...s.grades };

@@ -30,6 +30,12 @@ export const ingredients = {
   romaine: { name: '로메인 하트', kind: 'oval', color: '#5c8c38', inner: '#e8f0c6', len: 0.2, w: 0.075, h: 0.07, slot: 'romaine' },
   basil: { name: '생바질', kind: 'prepped', shape: 'leaf', color: '#3f7f2a' },
   prosciutto: { name: '프로슈토', kind: 'prepped', shape: 'strip', color: '#c9706a', inner: '#f1d2c8' },
+  // v21 돌체 재료 (3D 모형은 core/DolceDish.js)
+  savoiardi: { name: '사보이아르디', kind: 'prepped', shape: 'dolce', color: '#e2b673' },
+  mascarpone: { name: '마스카포네 크림', kind: 'prepped', shape: 'dolce', color: '#f7f0df' },
+  pannacotta: { name: '판나코타 푸딩', kind: 'prepped', shape: 'dolce', color: '#fbf5e6' },
+  blueberry: { name: '생블루베리', kind: 'prepped', shape: 'dolce', color: '#2c3566' },
+  mint: { name: '민트 잎', kind: 'prepped', shape: 'dolce', color: '#4f9a4a' },
 };
 
 // 서빙용 기본 모양 (워크벤치를 거치지 않을 때의 예비 모델)
@@ -327,6 +333,44 @@ export const recipes = [
       { type: 'art', label: '프리푸어 라떼아트', templates: ['tulip', 'heart', 'rosetta'] },
     ],
     dish: (k) => cupDish(k, { wide: true, coffee: '#b48a5e' }),
+  },
+  // ───────── v21 Stage 5 · 수제 돌체 (마스터 조리대 도마 구역에서 겹치기 · 드리즐 · 체 치기) ─────────
+  {
+    id: 's1_tiramisu',
+    it: 'Tiramisù Classico',
+    name: '클래식 티라미수',
+    desc: '에스프레소에 적신 비스킷과 마스카포네 크림',
+    icon: 'dolce',
+    station: 'dolce',
+    price: 9000,
+    tags: ['sweet', 'creamy', 'soft', 'strong'],
+    options: [],
+    hype: ['티라미수, 이름처럼 기분이 올라가요.', '커피 향 디저트라니 완벽한 마무리예요.'],
+    taste: ['마스카포네가 구름처럼 녹고 에스프레소 향이 깊게 올라와요!', '촉촉한 비스킷에 코코아가 쌉싸름하게 감싸요. 완벽한 마무리예요!'],
+    steps: [
+      { type: 'plate', label: '사보이아르디 비스킷 깔기', style: 'stack', layers: ['savoiardi'] },
+      { type: 'drizzle', label: '에스프레소 시럽 적시기', liquid: 'espresso' },
+      { type: 'plate', label: '마스카포네 크림 올리기', style: 'stack', layers: ['mascarpone'] },
+      { type: 'dust', label: '코코아 파우더 체 치기' },
+    ],
+  },
+  {
+    id: 's1_pannacotta',
+    it: 'Panna Cotta ai Frutti di Bosco',
+    name: '베리 판나코타',
+    desc: '바닐라 크림 푸딩과 라즈베리 쿨리, 생블루베리',
+    icon: 'panna',
+    station: 'dolce',
+    price: 8500,
+    tags: ['sweet', 'fruity', 'smooth', 'milky'],
+    options: [],
+    hype: ['탱글한 판나코타, 보기만 해도 설레요.', '새콤한 베리 소스가 벌써 기대돼요.'],
+    taste: ['푸딩이 탱글하게 흔들리고 라즈베리 쿨리가 새콤하게 번져요!', '바닐라 크림이 매끄럽고 블루베리가 톡톡 터져요. 정말 사랑스러워요!'],
+    steps: [
+      { type: 'plate', label: '판나코타 푸딩 올리기', style: 'stack', layers: ['pannacotta'] },
+      { type: 'drizzle', label: '라즈베리 쿨리 드리즐', liquid: 'coulis' },
+      { type: 'plate', label: '블루베리 · 민트 토핑', style: 'stack', layers: ['blueberry', 'mint'] },
+    ],
   },
 ];
 

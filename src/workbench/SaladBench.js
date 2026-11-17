@@ -192,7 +192,7 @@ export class SaladBench extends BoardBench {
     const finish = () => {
       if (done) return;
       done = true;
-      ctx.sound.pourStop();
+      ctx.sound.drizzleStop();
       self.tw.to(self.bottle, { pos: home, quat: new THREE.Quaternion(), dur: 0.4 });
       const score = clamp(Math.round(40 + rev * 15), 0, 100);
       ctx.ui.pop(`드레싱 ${scoreWord(score)}`, score >= 70);
@@ -205,7 +205,7 @@ export class SaladBench extends BoardBench {
         const p = ctx.planeHit(ndc, y);
         if (!p) return;
         path = [p];
-        ctx.sound.pourStart();
+        ctx.sound.drizzleStart();
       },
       move(e, ndc) {
         if (done) return;
@@ -244,13 +244,13 @@ export class SaladBench extends BoardBench {
       },
       up() {
         path = null;
-        ctx.sound.pourStop();
+        ctx.sound.drizzleStop();
         self.bottle.quaternion.setFromEuler(new THREE.Euler(0, 0, 0.4));
         keepAbove(self.bottle, NOZZLE_Y);
       },
       update() {},
       destroy() {
-        ctx.sound.pourStop();
+        ctx.sound.drizzleStop();
       },
     };
   }

@@ -8,6 +8,7 @@ import './ui/styles-v12.css';
 import './ui/styles-v15.css';
 import './ui/styles-v16.css';
 import './ui/styles-v17.css';
+import './ui/styles-v21.css';
 import * as THREE from 'three';
 import { registry } from './packs/index.js';
 import { bus } from './core/EventBus.js';
@@ -24,7 +25,7 @@ import { FurnitureManager } from './core/FurnitureManager.js';
 import { CafeAI, disposeObject } from './core/CafeAI.js';
 import { Effects } from './core/Effects.js';
 import { BuildController } from './core/BuildMode.js';
-import { SoundManager } from './core/SoundManager.js';
+import { SoundEngine } from './core/SoundEngine.js';
 import { DialogueEngine } from './core/DialogueEngine.js';
 import { preloadAssets } from './core/AssetLoader.js';
 import { buildDiorama } from './core/Diorama.js';
@@ -37,8 +38,9 @@ import { IntroModal, ConfirmModal, TastingCard } from './ui/Overlays.js';
 import { installHiddenGuard } from './ui/hiddenGuard.js';
 import { buildHeroDish } from './core/HeroDish.js';
 import { buildBistroDish } from './core/BistroDish.js';
-import { Progress, STAGES, CATALOG, GUESTS_PER_DAY, freshDay } from './core/Progress.js';
+import { Progress, STAGES, CATALOG, GUESTS_PER_DAY, freshDay, SPECIAL_BONUS } from './core/Progress.js';
 import { CatalogUI, DaySummary, LetterModal } from './ui/Trattoria.js';
+import { SpecialPicker, RankUI, CelebrationCard, DayBanner } from './ui/Tycoon.js';
 
 const SKIP_INTRO = 'cozy-bistro.skipIntro';
 const session = {
@@ -91,7 +93,7 @@ async function boot() {
   const grid = new GridSystem(sm.scene);
   const walls = new WallCutaway(sm.scene);
   const furniture = new FurnitureManager(sm.scene, grid);
-  const sound = new SoundManager(state.sound);
+  const sound = new SoundEngine(state.sound, state.music);
   const effects = new Effects(sm.scene, labels);
   const dialogue = new DialogueEngine(state);
 
@@ -119,6 +121,11 @@ async function boot() {
   const tasteCard = new TastingCard(ui);
   const daySum = new DaySummary(ui);
   const letter = new LetterModal(ui);
+  // v21 타이쿤 확장: 오늘의 특선 · 등급 & 업적 · 축하 카드 · 예고 배너
+  const specialUI = new SpecialPicker(ui);
+  const cele = new CelebrationCard(ui);
+  const banner = new DayBanner(ui);
+  let rankUI = null;
   let catalog = null; // 아래에서 만든다 (decor 적용 함수가 필요)
   let lamps = [];
   const refreshLamps = () => {
@@ -146,7 +153,8 @@ async function boot() {
   document.addEventListener('visibilitychange', () => document.hidden && saveNow());
 
   let intro = null;
-  const busy = () => talkUI.isOpen || workbench.isOpen || book.isOpen || confirmUI.isOpen || !!intro?.isOpen || !!ai.chef.prep || daySum.isOpen || letter.isOpen || !!catalog?.isOpen;
+  const busy = () =>
+    talkUI.isOpen || workbench.isOpen || book.isOpen || confirmUI.isOpen || !!intro?.isOpen || !!ai.chef.prep || daySum.isOpen || letter.isOpen || !!catalog?.isOpen || specialUI.isOpen || cele.isOpen || !!rankUI?.isOpen;
 
   // 처음부터: 세이브를 완전히 지우고 새로 시작 (인트로를 건너뛰고 바로 운영)
   const newGame = (skipIntro = true) => {
@@ -179,6 +187,20 @@ async function boot() {
       toast(state.sound ? '조리 효과음 ON' : '조리 효과음 OFF');
       scheduleSave();
     },
+    toggleMusic() {
+      state.set('music', !state.music);
+      sound.unlock();
+      sound.setMusic(state.music);
+      sound.tap();
+      toast(state.music ? '배경음악 ON' : '배경음악 OFF');
+      scheduleSave();
+    },
+    openRank() {
+      if (workbench.isOpen || talkUI.isOpen) return;
+      sound.tap();
+      rankUI.open();
+    },
+    unclaimed: () => progress.unclaimed(),
     async askRestart() {
       if (busy()) return;
       sound.tap();
@@ -312,13 +334,98 @@ async function boot() {
             P.dayStats = freshDay();
             dayEnding = false;
             ai.spawnTimer = 2;
-            toast(`Day ${state.day} 영업 시작! 오늘도 손님 ${GUESTS_PER_DAY}명을 맞이해요`);
             saveNow();
+            openSpecial(); // v21: 오픈 전 오늘의 특선 고르기 → 영업 시작
           },
         },
       );
     }, 900);
   }
+
+  // ───────── v21 아침 오픈: 오늘의 특선 고르기 (+ 3의 배수 날은 미식가 방문 예고) ─────────
+  function openSpecial() {
+    if (specialUI.isOpen || !progress.needsSpecial()) return;
+    const list = ai.available();
+    if (!list.length) return;
+    const vip = progress.isVipDay() && progress.p.vipDay !== state.day;
+    const base = (r) => Math.round((progress.priceOf(r) / (progress.isSpecial(r) ? 1 + SPECIAL_BONUS : 1)) / 100) * 100;
+    specialUI.show(
+      { day: state.day, vip, recipes: list, current: progress.p.special?.id, basePrice: base, specialPrice: (r) => Math.round((base(r) * (1 + SPECIAL_BONUS)) / 100) * 100 },
+      {
+        onTap: () => sound.tap(),
+        onPick: (id) => {
+          progress.setSpecial(id);
+          const r = registry.recipes.get(id);
+          sound.unlock();
+          sound.success?.();
+          ai.spawnTimer = Math.min(ai.spawnTimer, 2);
+          toast(`Day ${state.day} 영업 시작 · 오늘의 특선은 ${r?.name ?? ''}`);
+          if (vip) banner.show('vip', '오늘 마지막 손님으로 미식 칼럼니스트가 방문합니다!', 6000);
+          else banner.show('starFill', `오늘의 특선 · ${r?.name ?? ''} +${Math.round(SPECIAL_BONUS * 100)}%`, 4200);
+          saveNow();
+        },
+      },
+    );
+  }
+
+  // ───────── v21 등급 승급 · 업적 달성 확인 (결제 · 구매 · 해금 뒤) ─────────
+  function checkProgress(delay = 0) {
+    const up = progress.checkRankUp();
+    if (up) {
+      setTimeout(() => {
+        cele.show({
+          kind: 'rank',
+          star: up.star,
+          title: `${up.star}성 ${up.name} 승급!`,
+          text: up.star >= 5 ? '골목의 작은 가게가 모두가 찾는 그랜드 비스트로가 됐어요. 정말 멋져요!' : '손님들의 입소문이 퍼지고 있어요. 트라토리아가 한 단계 성장했어요.',
+          gift: `승급 축하금 ${up.reward.toLocaleString('ko-KR')}원`,
+          onShow: () => sound.celebrate?.(),
+          onClose: () => checkProgress(),
+        });
+      }, delay);
+    }
+    const fresh = progress.newAchievements();
+    if (fresh.length) {
+      setTimeout(() => {
+        toast(fresh.length > 1 ? `업적 ${fresh.length}개 달성 · 메뉴에서 보상을 받아요` : `업적 달성 · ${fresh[0].name} · 메뉴에서 보상 받기`);
+        sound.twinkle?.();
+      }, delay + 300);
+    }
+    bus.emit('state', 'ach');
+    scheduleSave();
+  }
+  bus.on('customer:paid', () => checkProgress(reactionsOn() ? 3200 : 900));
+  rankUI = new RankUI(ui, {
+    progress,
+    onTap: () => sound.tap(),
+    onClose: () => scheduleSave(),
+    onClaim: (id) => {
+      const a = progress.claim(id);
+      if (!a) return;
+      (sound.register ?? sound.coin).call(sound);
+      toast(`${a.name} 보상 +${a.reward.toLocaleString('ko-KR')}원`);
+      rankUI.render();
+      checkProgress();
+    },
+  });
+  // 미식가 심사 결과: A등급 이상이면 미식 매거진 헤드라인 + 상금 + 아늑함 +0.3
+  bus.on('vip:result', (e) => {
+    if (!e.win) return setTimeout(() => toast('미식가가 조용히 메모를 남겼어요 · 사흘 뒤 다시 찾아온대요'), 2600);
+    const heads = ['골목의 작은 트라토리아, 별을 품다', '한 접시에 담긴 이탈리아의 오후', '이 집, 기억해 둘 이름'];
+    setTimeout(
+      () =>
+        cele.show({
+          kind: 'news',
+          date: `미식 매거진 · Day ${state.day} 특집`,
+          title: heads[state.day % heads.length],
+          text: `칼럼니스트 ${e.name}: “${e.recipe.name} 한 접시에 마음을 빼앗겼다. 다시 찾고 싶은 곳.”`,
+          gift: `특별 상금 ${e.prize.toLocaleString('ko-KR')}원 + 아늑함 지수 +0.3`,
+          onShow: () => sound.celebrate?.(),
+          onClose: () => checkProgress(),
+        }),
+      reactionsOn() ? 3000 : 1200,
+    );
+  });
 
   // 인테리어 적용
   const decorRoot = new THREE.Group();
@@ -454,8 +561,16 @@ async function boot() {
         if (state.money < st.price) return toast(`${(st.price - state.money).toLocaleString('ko-KR')}원이 더 필요해요`);
         progress.unlock(id);
         rebuildMaster();
-        sound.fanfare?.();
-        toast(`${st.name} 해금! 마스터 조리대에 장비가 들어왔어요`);
+        (sound.celebrate ?? sound.fanfare).call(sound);
+        toast(id === 'dolce' ? `${st.name} 해금! 티라미수와 판나코타를 팔 수 있어요` : `${st.name} 해금! 마스터 조리대에 장비가 들어왔어요`);
+      } else if (kind === 'ing') {
+        // v21 식자재 등급 올리기
+        const nx = progress.nextIng(id);
+        if (!nx) return;
+        if (state.money < nx.price) return toast(`${(nx.price - state.money).toLocaleString('ko-KR')}원이 더 필요해요`);
+        progress.upgradeIng(id);
+        (sound.celebrate ?? sound.fanfare).call(sound);
+        toast(`식자재 Lv.${nx.lv} ${nx.name} · 단가와 판정 여유가 올랐어요`);
       } else {
         const it = CATALOG[kind].find((x) => x.id === id);
         if (!progress.owns(kind, id)) {
@@ -467,6 +582,7 @@ async function boot() {
         if (applyDecor(kind, id) !== false) toast(`${it.name} 적용 · 아늑함 ★${progress.cozy()}`);
       }
       catalog.render();
+      checkProgress();
       scheduleSave();
     },
   });
@@ -484,6 +600,7 @@ async function boot() {
     state.addMoney(30000);
     progress.p.gifts += 1;
     scheduleSave();
+    checkProgress(4000);
     setTimeout(() => {
       letter.show(
         {
@@ -910,7 +1027,13 @@ async function boot() {
   // ───────── 인트로 타이틀 ─────────
   let introT = 0;
   const introBase = { yaw: Math.PI / 4, x: 0 };
-  const welcome = () => setTimeout(() => toast(save ? `Day ${state.day} · 오늘도 손님 ${GUESTS_PER_DAY}명을 맞이해요` : '손님을 탭해 주문 → 마스터 조리대를 탭해 요리해요'), 500);
+  const welcome = () =>
+    setTimeout(() => {
+      toast(save ? `Day ${state.day} · 오늘도 손님 ${GUESTS_PER_DAY}명을 맞이해요` : '손님을 탭해 주문 → 마스터 조리대를 탭해 요리해요');
+      // v21: 오늘의 특선을 아직 안 골랐으면(새 게임 · 예전 저장 · 정산 직후 종료) 오픈 전에 고른다
+      if (!daySum.isOpen && progress.p.dayGuests < GUESTS_PER_DAY) openSpecial();
+      checkProgress(600);
+    }, 500);
   if (session.get(SKIP_INTRO)) {
     session.set(SKIP_INTRO, null);
     welcome();
@@ -951,6 +1074,7 @@ async function boot() {
     },
     dishes: { buildHeroDish, buildBistroDish },
     progress, catalog: () => catalog, daySum, letter, applyDecor, THREE, // applyDecor · THREE: 3D 무결성 감사(tools/__t.js)용
+    specialUI, rankUI, cele, banner, openSpecial, checkProgress, rebuildMaster, // v21
     tap: liveTap,
     tapCustomer,
     tapStation,

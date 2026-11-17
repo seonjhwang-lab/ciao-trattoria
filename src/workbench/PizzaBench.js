@@ -887,7 +887,7 @@ export class PizzaBench extends BoardBench {
         best.cut = true;
         self.stage.remove(best.guide);
         anim = { l: best, t: 0, score };
-        ctx.sound.swish();
+        (ctx.sound.wheel ?? ctx.sound.swish).call(ctx.sound);
       },
       update(dt = 1 / 60) {
         if (self.oilAnim) self.oilAnim(dt);

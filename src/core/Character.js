@@ -220,6 +220,14 @@ export function buildHead(L, mSkin = null, mHair = null) {
     head.add(k.at(k.scl(k.sphere(0.163, k.fabric(L.hatColor), { tl: Math.PI * 0.46 }), 1, 1.14, 1), 0, 0.025, 0, -0.12));
     head.add(k.at(k.torus(0.15, 0.022, k.fabric(k.shade(L.hatColor, -0.06))), 0, 0.05, 0, Math.PI / 2 - 0.12));
   }
+  if (L.hat === 'fedora') {
+    // v21 미식가의 중절모: 넓은 챙 + 가운데가 눌린 크라운 + 리본 띠
+    const felt = k.fabric(L.hatColor);
+    head.add(k.at(k.scl(k.cyl(0.21, 0.215, 0.012, felt, { seg: 32 }), 1, 1, 0.94), 0, 0.105, 0, -0.06));
+    head.add(k.at(k.scl(k.cyl(0.118, 0.142, 0.1, felt, { seg: 28 }), 1, 1, 0.9), 0, 0.158, -0.004, -0.06));
+    head.add(k.at(k.scl(k.sphere(0.118, felt, { tl: Math.PI * 0.5 }), 1, 0.2, 0.9), 0, 0.207, -0.007, -0.06));
+    head.add(k.at(k.scl(k.cyl(0.144, 0.146, 0.026, k.fabric(k.shade(L.hatColor, -0.1)), { seg: 28 }), 1, 1, 0.9), 0, 0.124, -0.002, -0.06));
+  }
   if (L.hat === 'cap') {
     head.add(k.at(k.scl(k.sphere(0.16, k.fabric(L.hatColor), { tl: Math.PI * 0.48 }), 1, 1.05, 1), 0, 0.03, 0, -0.1));
     head.add(k.at(k.scl(k.cyl(0.1, 0.1, 0.012, k.fabric(L.hatColor)), 1, 1, 0.7), 0, 0.06, 0.15, 0.25));

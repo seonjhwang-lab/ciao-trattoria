@@ -1,10 +1,39 @@
-// 절차적 카페 ASMR 사운드 — 외부 파일 없이 Web Audio API 로 합성한다.
+// v21 SoundEngine — 절차적 주방 효과음(SFX) + 잔잔한 어쿠스틱 BGM. 외부 파일 없이 Web Audio API 로 합성한다.
 // 모바일 브라우저는 사용자 터치 후에만 소리를 낼 수 있어서 첫 터치에 unlock() 한다.
-export class SoundManager {
-  constructor(enabled = true) {
+// 버스: master(효과음) · musicBus(배경음악) → 컴프레서 → 출력. 메뉴의 [효과음] · [배경음악] 토글이 각 버스를 켜고 끈다.
+const SFX_GAIN = 0.7;
+const BGM_GAIN = 0.2;
+// BGM: 6/8 박자 나일론 기타 아르페지오 + 마림바 한두 음 + 낮은 베이스 (8마디 반복)
+const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12);
+const BGM_CHORDS = [
+  [48, 55, 60, 64, 67], // C
+  [45, 52, 57, 60, 64], // Am
+  [41, 53, 57, 60, 65], // F
+  [43, 55, 59, 62, 67], // G
+  [48, 55, 60, 64, 67], // C
+  [40, 52, 55, 59, 64], // Em
+  [41, 53, 57, 60, 65], // F
+  [43, 53, 59, 62, 65], // G7
+];
+const BGM_ARP = [1, 2, 3, 4, 3, 2]; // 코드 음 인덱스 (0 = 베이스)
+const BGM_BEAT = 0.34; // 8분음표 길이(초)
+
+export class SoundEngine {
+  constructor(enabled = true, music = true) {
     this.enabled = enabled;
+    this.music = music;
     this.ctx = null;
     this.loops = new Map();
+    this.plucks = new Map();
+    this.bgm = null;
+    if (typeof document !== 'undefined') {
+      // 화면을 떠나면 소리를 멈추고, 돌아오면 이어서
+      document.addEventListener('visibilitychange', () => {
+        if (!this.ctx) return;
+        if (document.hidden) this.ctx.suspend?.();
+        else this.ctx.resume?.();
+      });
+    }
   }
 
   unlock() {
@@ -13,9 +42,12 @@ export class SoundManager {
       if (!AC) return;
       this.ctx = new AC();
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.enabled ? 0.7 : 0;
+      this.master.gain.value = this.enabled ? SFX_GAIN : 0;
+      this.musicBus = this.ctx.createGain();
+      this.musicBus.gain.value = this.music ? BGM_GAIN : 0;
       const comp = this.ctx.createDynamicsCompressor();
       this.master.connect(comp);
+      this.musicBus.connect(comp);
       comp.connect(this.ctx.destination);
       const len = this.ctx.sampleRate * 2;
       this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -30,12 +62,108 @@ export class SoundManager {
         b[i] = last * 3.5;
       }
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume();
+    if (this.music) this.startMusic();
   }
 
   setEnabled(v) {
     this.enabled = v;
-    if (this.master) this.master.gain.setTargetAtTime(v ? 0.7 : 0, this.ctx.currentTime, 0.05);
+    if (this.master) this.master.gain.setTargetAtTime(v ? SFX_GAIN : 0, this.ctx.currentTime, 0.05);
+  }
+
+  // ───── 배경음악 ─────
+  setMusic(v) {
+    this.music = v;
+    if (!this.ctx) return;
+    this.musicBus.gain.setTargetAtTime(v ? BGM_GAIN : 0, this.ctx.currentTime, 0.25);
+    if (v) this.startMusic();
+    else this.stopMusic();
+  }
+
+  // 나일론 기타 한 음 (Karplus-Strong 현 모델, 음높이마다 한 번 만들어 재사용)
+  pluckBuf(freq) {
+    const key = Math.round(freq * 10);
+    let buf = this.plucks.get(key);
+    if (buf) return buf;
+    const sr = this.ctx.sampleRate;
+    const N = Math.max(2, Math.round(sr / freq));
+    const len = Math.floor(sr * 1.7);
+    buf = this.ctx.createBuffer(1, len, sr);
+    const d = buf.getChannelData(0);
+    const ring = new Float32Array(N);
+    for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+    // 손끝으로 뜯는 나일론 줄: 처음 잡음을 두 번 뭉개 고음을 덜어 낸다
+    for (let p = 0; p < 2; p++) for (let i = 0; i < N; i++) ring[i] = (ring[i] + ring[(i + 1) % N]) * 0.5;
+    let idx = 0;
+    for (let i = 0; i < len; i++) {
+      const nx = (idx + 1) % N;
+      d[i] = ring[idx];
+      ring[idx] = (ring[idx] + ring[nx]) * 0.4985;
+      idx = nx;
+    }
+    for (let i = 0; i < 400 && i < len; i++) d[len - 1 - i] *= i / 400; // 끝을 부드럽게
+    this.plucks.set(key, buf);
+    return buf;
+  }
+
+  pluck(freq, t, vol = 0.5) {
+    const c = this.ctx;
+    const s = c.createBufferSource();
+    s.buffer = this.pluckBuf(freq);
+    const g = c.createGain();
+    g.gain.value = vol;
+    s.connect(g).connect(this.musicBus);
+    s.start(t);
+  }
+
+  marimba(freq, t, vol = 0.3) {
+    const c = this.ctx;
+    for (const [mul, amp, dec] of [
+      [1, 1, 0.9],
+      [4, 0.22, 0.18],
+    ]) {
+      const o = c.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = freq * mul;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol * amp, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+      o.connect(g).connect(this.musicBus);
+      o.start(t);
+      o.stop(t + dec + 0.05);
+    }
+  }
+
+  startMusic() {
+    if (!this.ctx || this.bgm || !this.music) return;
+    const st = { step: 0, next: this.ctx.currentTime + 0.25, timer: 0 };
+    const tick = () => {
+      const c = this.ctx;
+      if (!c || c.state !== 'running') return;
+      if (st.next < c.currentTime) st.next = c.currentTime + 0.05; // 탭이 잠들었다 깨어나면 밀린 음을 몰아 치지 않는다
+      while (st.next < c.currentTime + 0.7) {
+        const bar = Math.floor(st.step / 6) % BGM_CHORDS.length;
+        const k = st.step % 6;
+        const ch = BGM_CHORDS[bar];
+        const lap = Math.floor(st.step / 48);
+        if (k === 0) this.pluck(NOTE(ch[0]), st.next, 0.5);
+        this.pluck(NOTE(ch[BGM_ARP[k]]), st.next + (k === 0 ? 0.012 : 0), k === 0 ? 0.42 : 0.32);
+        // 마림바: 두 바퀴째부터 마디 첫 박 · 넷째 박에 코드 음을 한 옥타브 위로 살짝
+        if (lap % 2 === 1 && (k === 0 || (k === 3 && bar % 2 === 1))) this.marimba(NOTE(ch[k === 0 ? 4 : 3] + 12), st.next, 0.2);
+        st.next += BGM_BEAT * (k === 5 && bar === BGM_CHORDS.length - 1 ? 1.25 : 1); // 마지막 마디 끝에서 살짝 숨 고르기
+        st.step++;
+      }
+    };
+    st.timer = setInterval(tick, 200);
+    this.bgm = st;
+    tick();
+  }
+
+  stopMusic() {
+    if (!this.bgm) return;
+    clearInterval(this.bgm.timer);
+    this.bgm = null;
   }
 
   get ready() {
@@ -235,12 +363,15 @@ export class SoundManager {
   // 프라이팬 지글거림 (팬을 흔들수록 커진다)
   sizzleStart() {
     this.loopStart('sizzle', { type: 'highpass', freq: 2400, q: 0.5, gain: 0.2, lfo: 23, lfoDepth: 0.08 });
+    // 옆 화구에서 면 삶는 물이 낮게 보글보글
+    this.loopStart('boil', { buf: this.brownBuf, type: 'lowpass', freq: 320, q: 1.2, gain: 0.3, lfo: 9, lfoDepth: 0.14 });
   }
   sizzleLevel(v) {
     this.loopLevel('sizzle', Math.min(1.8, 0.4 + v));
   }
   sizzleStop() {
     this.loopStop('sizzle');
+    this.loopStop('boil');
   }
   // 화덕 장작 타닥타닥
   fireStart() {
@@ -328,5 +459,57 @@ export class SoundManager {
   aww() {
     this.tone(523, { d: 0.25, peak: 0.1, type: 'triangle' });
     this.tone(415, { t: 0.18, d: 0.45, peak: 0.1, type: 'triangle' });
+  }
+
+  // ───── v21 추가 효과음 ─────
+  // 주문 접수 '딩동'
+  orderBell() {
+    for (const [t, f] of [
+      [0, 1319],
+      [0.19, 1047],
+    ]) {
+      this.tone(f, { t, d: 0.7, peak: 0.16 });
+      this.tone(f * 2, { t, d: 0.3, peak: 0.05 });
+      this.tone(f * 3.01, { t, d: 0.18, peak: 0.025 });
+    }
+  }
+  // 금전등록기 '차-칭' + 동전
+  register() {
+    this.burst({ dur: 0.04, freq: 900, q: 1.5, peak: 0.2 });
+    this.tone(2093, { t: 0.05, d: 0.5, peak: 0.1 });
+    this.tone(2637, { t: 0.05, d: 0.45, peak: 0.08 });
+    this.tone(3136, { t: 0.13, d: 0.5, peak: 0.07 });
+    for (let i = 0; i < 4; i++) this.tone(3400 + Math.random() * 1600, { t: 0.2 + i * 0.05, d: 0.09, peak: 0.035, type: 'triangle' });
+  }
+  // 승급 · 해금 축하 화음 (장3화음 아르페지오 + 반짝임)
+  celebrate() {
+    [523, 659, 784, 1047, 1319].forEach((f, i) => {
+      this.tone(f, { t: i * 0.1, d: 1.3, peak: 0.13 });
+      this.tone(f * 2, { t: i * 0.1, d: 0.7, peak: 0.035 });
+    });
+    for (const f of [523, 659, 784, 1047]) this.tone(f, { t: 0.62, d: 1.6, peak: 0.07, type: 'triangle' });
+    for (let i = 0; i < 8; i++) this.tone(2400 + Math.random() * 2400, { t: 0.5 + i * 0.07, d: 0.3, peak: 0.025 });
+  }
+  // 소스 · 꿀 · 시럽 드리즐: 가늘게 흐르는 소리
+  drizzleStart() {
+    this.loopStart('drizzle', { buf: this.brownBuf, type: 'bandpass', freq: 2100, q: 1.6, gain: 0.34, lfo: 13, lfoDepth: 0.1 });
+  }
+  drizzleStop() {
+    this.loopStop('drizzle');
+  }
+  // 고운 가루를 체로 솔솔
+  sift() {
+    this.burst({ dur: 0.09, type: 'highpass', freq: 5200, q: 0.6, peak: 0.07 });
+    this.burst({ t: 0.05, dur: 0.07, type: 'bandpass', freq: 7000, q: 1.2, peak: 0.04 });
+  }
+  // 피자 휠이 바삭한 도우를 '드르륵' 가른다
+  wheel() {
+    for (let i = 0; i < 7; i++) this.burst({ t: i * 0.035, dur: 0.025, freq: 2600 + (i % 2) * 900, q: 3, peak: 0.13 });
+    this.tone(160, { d: 0.26, peak: 0.1, type: 'triangle' });
+  }
+  // 별 입자 반짝
+  twinkle() {
+    this.tone(2637, { d: 0.25, peak: 0.05 });
+    this.tone(3520, { t: 0.07, d: 0.3, peak: 0.04 });
   }
 }

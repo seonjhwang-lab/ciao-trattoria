@@ -5,14 +5,16 @@ import { icon } from './icons.js';
 import { oneLine } from './svgText.js';
 import { bindTap } from './Tap.js';
 import { clampLine } from './clampLine.js';
+import { getProgress } from '../core/Progress.js';
 
 // 9차 메뉴판 카테고리 (조리대 = 카테고리)
-const CATEGORIES = [
+export const CATEGORIES = [
   { id: 'pasta', short: '파스타', ic: 'pasta', name: '파스타', it: 'Pasta Fresca' },
-  { id: 'pizza', short: '화덕 피자', ic: 'pizza', name: '화덕 피자', it: 'Pizza al Forno' },
+  { id: 'pizza', short: '피자', ic: 'pizza', name: '화덕 피자', it: 'Pizza al Forno' },
   { id: 'salad', short: '샐러드', ic: 'salad', name: '가든 샐러드', it: 'Insalata' },
-  { id: 'espresso', short: '커피 & 바', ic: 'latte', name: '에스프레소 & 바', it: 'Caffè' },
+  { id: 'espresso', short: '커피', ic: 'latte', name: '에스프레소 & 바', it: 'Caffè' },
   { id: 'sandwich', short: '브런치', ic: 'blt', name: '브런치 & 토스트', it: 'Brunch' },
+  { id: 'dolce', short: '돌체', ic: 'dolce', name: '수제 돌체', it: 'Dolce' }, // v21 Stage 5
 ];
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -279,13 +281,17 @@ export class DialogueUI {
 
   openBoard() {
     const known = new Set(this.engine.revealedTags(this.c));
-    const cats = CATEGORIES.map((c) => ({ ...c, list: this.available.filter((r) => r.station === c.id) }));
+    const P = getProgress();
+    const spId = P?.specialId() ?? null;
+    const priceOf = (r) => P?.priceOf(r) ?? r.price ?? 0;
+    // 오늘의 특선은 그 코너 맨 위에
+    const cats = CATEGORIES.map((c) => ({ ...c, list: this.available.filter((r) => r.station === c.id).sort((a, b) => (b.id === spId) - (a.id === spId)) }));
     const kb = this.board.querySelector('.mb16-known');
     kb.innerHTML = known.size ? `<span>${esc(this.c.persona.name)} 님 취향</span>${[...known].map((x) => `<i>#${esc(registry.tags[x] ?? x)}</i>`).join('')}` : '';
     const tabs = this.board.querySelector('.mb16-tabs');
     const list = this.board.querySelector('.mb16-list');
     tabs.innerHTML = cats
-      .map((c) => `<button type="button" class="mb16-tab${c.list.length ? '' : ' soon'}" role="tab" data-cat="${c.id}" aria-label="${c.name}">${icon(c.ic)}<span>${c.short}</span></button>`)
+      .map((c) => `<button type="button" class="mb16-tab${c.list.length ? '' : ' soon'}${c.list.some((r) => r.id === spId) ? ' sp' : ''}" role="tab" data-cat="${c.id}" aria-label="${c.name}">${icon(c.ic)}<span>${c.short}</span></button>`)
       .join('');
     const show = (id) => {
       this.cat = id;
@@ -303,13 +309,14 @@ export class DialogueUI {
       for (const r of cat.list.slice(0, 4)) {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'mb16-item';
+        const sp = r.id === spId;
+        b.className = 'mb16-item' + (sp ? ' special' : '');
         const hit = r.tags.some((x) => known.has(x));
-        b.setAttribute('aria-label', `${r.name} ${r.price}원 주문`);
+        b.setAttribute('aria-label', `${r.name} ${priceOf(r)}원 주문${sp ? ' (오늘의 특선)' : ''}`);
         b.innerHTML = `
           <span class="mb16-ic">${icon(r.icon)}</span>
           <span class="mb16-txt">
-            <span class="mb16-row"><b>${esc(r.name)}</b>${hit ? '<i class="mb16-hit">취향</i>' : ''}<span class="mb16-price">₩${(r.price ?? 0).toLocaleString('ko-KR')}</span></span>
+            <span class="mb16-row"><b>${esc(r.name)}</b>${sp ? `<i class="mb16-sp">${icon('starFill')}특선</i>` : ''}${hit ? '<i class="mb16-hit">취향</i>' : ''}<span class="mb16-price">₩${priceOf(r).toLocaleString('ko-KR')}</span></span>
             <span class="mb16-desc">${esc(r.desc ?? r.it ?? '')}</span>
           </span>`;
         // 누르는 즉시: 메뉴판 · 대화창이 함께 닫히고 이 메뉴로 주문 확정
@@ -326,7 +333,7 @@ export class DialogueUI {
         this.sound.tap();
         show(b.dataset.cat);
       });
-    const first = cats.find((c) => c.id === this.cat && c.list.length) ?? cats.find((c) => c.list.length);
+    const first = cats.find((c) => c.id === this.cat && c.list.length) ?? cats.find((c) => c.list.some((r) => r.id === spId)) ?? cats.find((c) => c.list.length);
     show(first?.id ?? 'espresso');
     this.board.classList.remove('hidden');
     document.body.classList.add('mb-open');

@@ -33,6 +33,7 @@ function disposeBag(bag, keepRoot) {
   bag.sk.clear();
 }
 import { registry } from '../core/PackRegistry.js';
+import { getProgress } from '../core/Progress.js';
 import { gradeFor, payment } from '../core/Grading.js';
 import { icon } from '../ui/icons.js';
 import { svgBanner, FONT } from '../ui/svgText.js';
@@ -42,7 +43,7 @@ import { PastaBench } from './PastaBench.js';
 import { PizzaBench } from './PizzaBench.js';
 import { SaladBench } from './SaladBench.js';
 
-const BENCHES = { espresso: EspressoBench, sandwich: BoardBench, pasta: PastaBench, pizza: PizzaBench, salad: SaladBench };
+const BENCHES = { espresso: EspressoBench, sandwich: BoardBench, pasta: PastaBench, pizza: PizzaBench, salad: SaladBench, dolce: BoardBench };
 
 const STEP_NAME = {
   slice: '결 살려 썰기',
@@ -70,6 +71,7 @@ const STEP_NAME = {
   toss_salad: '샐러드 토싱',
   wheel: '피자 휠 커팅',
   halve: '대각선 반 자르기',
+  dust: '코코아 체 치기',
 };
 
 // 3D 워크벤치: 메인 카메라가 실제 조리대 위로 비스듬히 클로즈업하고, 그 자리에 고디테일 조리대가 펼쳐진다.
@@ -349,6 +351,9 @@ export class Workbench3D {
 
   stepDone(score, detail) {
     const step = this.order.steps[this.stepIndex];
+    // v21 식자재 등급: 좋은 재료일수록 판정이 너그러워진다 (모자란 점수의 12%씩 채움, Lv.4 = 36%)
+    const ease = getProgress()?.ease(this.order.recipe.station) ?? 0;
+    if (ease > 0) score = Math.min(100, score + (100 - score) * ease);
     this.results.push({ label: step.label ?? STEP_NAME[step.type], score: Math.round(score), detail });
     const em = this.q(`.wb-steps li[data-i="${this.stepIndex}"] em`);
     if (em) em.textContent = Math.round(score);
@@ -368,7 +373,8 @@ export class Workbench3D {
     const G = gradeFor(total);
     this.result = { score: total, grade: G.g, steps: this.results };
     const order = this.order;
-    const pay = payment(order.recipe.price, G);
+    const pay = payment(getProgress()?.priceOf(order.recipe) ?? order.recipe.price, G);
+    if (G.g === 'S') this.sound.vibrate?.([24, 40, 30]); // S등급 완성 햅틱
     this.bench.showcase?.();
     this.finishFx();
     this.q('.wb-bottom').classList.add('hidden');

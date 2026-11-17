@@ -215,6 +215,7 @@ T.touch = (el) => {
 T.rushDay = (ms = 36000) => {
   const c = window.__cafe, ai = c.ai, t0 = performance.now();
   for (let loop = 0; loop < 400 && !c.daySum.isOpen; loop++) {
+    T.clearModals();
     c.advance(0.5);
     for (const cu of ai.customers) if (cu.state === 'awaitTalk') { cu.talk = cu.talk || {}; const av = ai.available(); ai.acceptOrder(cu, av[loop % av.length], null); }
     const o = ai.orders.find((o) => o.status === 'accepted');
@@ -257,10 +258,24 @@ T.fingerDrag = (pts, adv = 0.03) => {
 
 // v15 흐름 도우미 (표준 click 기준)
 T.sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// v21: 떠 있는 모달(오늘의 특선 · 축하 카드 · 편지 · 등급창 · 카탈로그)을 닫아 게임이 계속 흐르게 한다
+T.clearModals = () => {
+  const c = window.__cafe;
+  let n = 0;
+  if (c.specialUI?.isOpen) { document.querySelector('.spk .spk-ok')?.click(); n++; }
+  if (c.cele?.isOpen) { document.querySelector('.cele .lt-ok')?.click(); n++; }
+  if (c.letter?.isOpen) { document.querySelector('.letter:not(.cele) button')?.click(); n++; }
+  if (c.rankUI?.isOpen) { c.rankUI.close(); n++; }
+  if (c.catalog?.()?.isOpen) { c.catalog().close(); n++; }
+  return n;
+};
 T.enter = async () => {
   const c = window.__cafe;
   const b = document.querySelector('.intro [data-a="continue"]:not([disabled])') || document.querySelector('.intro [data-a="new"]');
-  if (b && c.intro?.isOpen) { b.click(); c.advance(1.5); await T.sleep(700); }
+  if (b && c.intro?.isOpen) { b.click(); c.advance(1.5); await T.sleep(900); }
+  // 인트로 뒤 0.5초에 오늘의 특선 선택창이 뜬다 → 골라서 영업 시작
+  for (let i = 0; i < 4; i++) { if (T.clearModals()) await T.sleep(350); }
+  c.advance(0.3);
 };
 T.toTalk = async (mode = 'pointer') => {
   const c = window.__cafe, ai = c.ai;
@@ -313,12 +328,41 @@ T.clipAudit = (label = '') => {
 T.auditScreens = async (opts = {}) => {
   const c = window.__cafe, wb = c.workbench, ai = c.ai;
   const res = [];
-  const A = (l) => res.push(...T.clipAudit(l));
+  // v21: 어떤 화면을 실제로 검사했는지 T._cov 에 남긴다 (라벨 → 그때 떠 있던 주요 창)
+  T._cov = [];
+  const open = () => ['.spk', '.rank', '.cat', '.cele', '.hud-menu', '.day-banner', '.dlg', '#menu-board', '.wb', '.daysum', '.intro'].filter((q) => { const e = document.querySelector(q); return e && !e.classList.contains('hidden') && !e.classList.contains('out') && getComputedStyle(e).display !== 'none'; }).join('');
+  const A = (l) => { T._cov.push(l + open()); res.push(...T.clipAudit(l)); };
   const m = [...c.furniture.items.values()].find((i) => i.def.station === 'master');
   if (opts.intro) A('[intro]');
   await T.enter();
   if (c.daySum?.isOpen) { [...document.querySelectorAll('.daysum button')].find((b) => /다음 날/.test(b.textContent))?.click(); await T.sleep(400); }
+  T.clearModals(); await T.sleep(300);
   c.progress.p.dayGuests = 0; c.progress.p.dayStats.guests = 0;
+  // v21 새 화면: 오늘의 특선 선택창(코너 탭 전부 · 미식가 예고 포함) · 예고 배너 · 메뉴 · 등급 & 업적 · 식자재 탭 · 축하 카드
+  {
+    const P = c.progress, keepUn = { ...P.p.unlocks }, keepSp = { ...P.p.special };
+    for (const k of Object.keys(P.p.unlocks)) P.p.unlocks[k] = true;
+    P.p.special = { day: -1, id: null };
+    const day0 = c.state.day; c.state.day = 3; // 미식가 예고 줄이 보이는 날
+    c.openSpecial(); await T.sleep(200);
+    for (const t of [...document.querySelectorAll('.spk .spk-tab')]) { t.click(); await T.sleep(60); A(`[special:${t.getAttribute('aria-label')}]`); }
+    document.querySelector('.spk .spk-ok')?.click(); await T.sleep(250);
+    A('[banner]');
+    c.state.day = day0; P.p.special = keepSp;
+    document.querySelector('.hud-menu-btn')?.click(); await T.sleep(120); A('[hud-menu]');
+    document.querySelector('.hud-menu [data-m="rank"]')?.click(); await T.sleep(200); A('[rank:등급]');
+    document.querySelector('.rank-tabs [data-t="ach"]')?.click(); await T.sleep(120); A('[rank:업적]');
+    c.rankUI.close();
+    c.catalog().open('ing'); await T.sleep(200); A('[catalog:식자재]');
+    c.catalog().close();
+    c.cele.show({ kind: 'news', date: `미식 매거진 · Day ${c.state.day} 특집`, title: '골목의 작은 트라토리아, 별을 품다', text: '칼럼니스트 알레시오: “트러플 루꼴라 프로슈토 피자 한 접시에 마음을 빼앗겼다. 다시 찾고 싶은 곳.”', gift: '특별 상금 30,000원 + 아늑함 지수 +0.3' });
+    await T.sleep(200); A('[card:미식 매거진]');
+    document.querySelector('.cele .lt-ok')?.click(); await T.sleep(100);
+    c.cele.show({ kind: 'rank', star: 5, title: '5성 그랜드 비스트로 승급!', text: '골목의 작은 가게가 모두가 찾는 그랜드 비스트로가 됐어요. 정말 멋져요!', gift: '승급 축하금 100,000원' });
+    await T.sleep(200); A('[card:승급]');
+    document.querySelector('.cele .lt-ok')?.click(); await T.sleep(100);
+    P.p.unlocks = keepUn;
+  }
   c.advance(1); await T.sleep(250); A('[hall]');
   const g = await T.toTalk('both');
   if (g) {
@@ -608,7 +652,7 @@ T.auditMotion = (guests = 12, dt = 1 / 30) => {
   for (let f = 0; f < 30 * 60 * 8 && served < guests; f++) {
     if (f - lastServe > 30 * 90) { add('진행 멈춤: 90초 동안 서빙 없음', 1, { at: ai.customers.map((x) => x.state) }); break; }
     P.dayGuests = 0; P.dayStats.guests = 0;
-    if (c.letter.isOpen) document.querySelector('.letter button')?.click(); // 단골 감사 편지 등 팝업은 닫고 계속
+    if (f % 15 === 0) T.clearModals(); // 단골 감사 편지 · 승급 카드 · 특선 선택창 등 팝업은 닫고 계속
     if (ai.spawnTimer > 0.5 && ai.freeSeats().length) ai.spawnTimer = 0.5;
     for (const cu of ai.customers) if (cu.state === 'awaitTalk') { cu.talk = cu.talk || {}; seatsUsed.add(cu.seat.tile.join()); ai.acceptOrder(cu, recipes[(served + cu.id) % recipes.length], null); }
     if (!job && !ai.chef.carry) {

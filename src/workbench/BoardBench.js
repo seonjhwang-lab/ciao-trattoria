@@ -5,6 +5,7 @@ import { SliceableItem, layFlat, buildPrepped, lobeTop, radiusAt } from './Ingre
 import { endgrainTexture, traceLoaf } from './benchTextures.js';
 import { Tweens, clamp, lcs, scoreWord } from './tween.js';
 import { ingIcon } from '../ui/ingIcon.js';
+import { dolcePortion, soak, PANNA } from '../core/DolceDish.js';
 import { buildHeroDish, bacon as heroBacon, lettuce as heroLettuce, poachedEgg as heroEgg, tomatoSlice as heroTomato, avocadoSlice, figWedge, arugula, basilLeaf } from '../core/HeroDish.js';
 
 // 샌드위치 워크벤치: 엔드그레인 월넛 도마 위에서 썰기 → 바르기 → 플레이팅 → 드리즐/통후추
@@ -156,6 +157,9 @@ export class BoardBench {
     for (const c of this.dish.children) c.userData.plate = true;
     g.add(this.dish);
     this.top = 0.014;
+    // v21 돌체 바: 오일 · 꿀 · 후추통 자리에 에스프레소 시럽 / 라즈베리 쿨리 병과 코코아 체
+    this.dolce = this.ctx.order.recipe.station === 'dolce';
+    if (this.dolce) return this.buildDolceTools();
     // 뒷줄 소품: 오일병, 꿀병, 페퍼밀
     this.oil = k.group(k.at(k.cyl(0.028, 0.03, 0.17, k.mat('#6b7a2a', { opacity: 0.75, rough: 0.1 })), 0, 0.085, 0), k.at(k.cyl(0.01, 0.012, 0.05, k.metal('black')), 0, 0.19, 0));
     this.oil.position.set(0.36, Y0, -0.26);
@@ -166,7 +170,45 @@ export class BoardBench {
     this.mill = k.group(k.at(k.cyl(0.022, 0.026, 0.16, k.wood('walnut')), 0, 0.08, 0), k.at(k.sphere(0.022, k.wood('walnut')), 0, 0.165, 0), k.at(k.cyl(0.006, 0.006, 0.02, k.metal('steel')), 0, 0.19, 0));
     this.mill.position.set(0.44, Y0, -0.2);
     g.add(this.mill);
-    // 9차: 스테인리스 호텔 팬(GN 1/6)에 담긴 3D 재료 + 스프레드 병 (도마 뒤 한 줄 / 병은 왼쪽 앞)
+    this.buildPans();
+  }
+
+  // v21 돌체 도구: 짜는 소스 병(노즐이 위) + 손잡이 달린 코코아 체. userData.tool 로 3D 감사(B3.config)가 찾는다
+  buildDolceTools() {
+    const k = kit;
+    const g = this.stage;
+    const liquid = this.ctx.order.steps.find((s) => s.type === 'drizzle')?.liquid;
+    if (liquid) {
+      const col = LIQUID[liquid]?.bottle ?? '#5a3a26';
+      this.pitcher = k.group(
+        k.at(k.cyl(0.024, 0.026, 0.1, k.mat(col, { rough: 0.35 })), 0, 0.05, 0),
+        k.at(k.cyl(0.018, 0.024, 0.016, k.mat('#f3ede0', { rough: 0.4 })), 0, 0.108, 0),
+        k.at(k.cyl(0.004, 0.011, 0.034, k.mat('#f3ede0', { rough: 0.4 })), 0, 0.133, 0),
+      );
+      this.pitcher.position.set(0.27, Y0, -0.27);
+      Object.assign(this.pitcher.userData, { tool: LIQUID[liquid]?.tool ?? '소스 병', toolKind: 'hover', clear: 0.08 });
+      g.add(this.pitcher);
+    }
+    if (this.ctx.order.steps.some((s) => s.type === 'dust')) {
+      const steel = k.metal('steel');
+      this.sifter = k.group(
+        k.at(k.cyl(0.036, 0.036, 0.003, k.mat('#8d9197', { metal: 0.6, rough: 0.5 })), 0, 0.0015, 0),
+        k.at(k.cyl(0.04, 0.038, 0.03, k.mat('#c2c6cb', { metal: 0.7, rough: 0.3, side: 'double' }), { open: true }), 0, 0.017, 0),
+        k.at(k.torus(0.04, 0.0025, steel), 0, 0.032, 0, Math.PI / 2),
+        k.at(k.rbox(0.07, 0.009, 0.014, k.wood('walnut'), { r: 0.004 }), 0.074, 0.028, 0),
+        k.at(k.cyl(0.03, 0.03, 0.006, k.mat('#4a2b19', { rough: 1 })), 0, 0.006, 0),
+      );
+      this.sifter.position.set(0.37, Y0, -0.25);
+      Object.assign(this.sifter.userData, { tool: '코코아 체', toolKind: 'hover', clear: 0.1 });
+      g.add(this.sifter);
+    }
+    this.buildPans();
+  }
+
+  // 9차: 스테인리스 호텔 팬(GN 1/6)에 담긴 3D 재료 + 스프레드 병 (도마 뒤 한 줄 / 병은 왼쪽 앞)
+  buildPans() {
+    const k = kit;
+    const g = this.stage;
     const panIds = new Set();
     const spreads = new Set();
     for (const s of this.ctx.order.steps) {
@@ -215,6 +257,7 @@ export class BoardBench {
       plate: () => this.plate(step),
       drizzle: () => this.drizzle(step),
       pepper: () => this.pepper(step),
+      dust: () => this.dust(step),
       halve: () => this.halve(step),
     }[step.type];
     return fn ? fn() : { update() {}, destroy() {} };
@@ -255,6 +298,7 @@ export class BoardBench {
         a.hit = true;
         a.item.cut(a.xm);
         this.ctx.sound.chop();
+        this.ctx.sound.vibrate?.(18); // 칼질 완료 '탁' 햅틱
         this.shake = 0.14;
         this.crumbs(a.item, a.x);
         a.onCut?.();
@@ -860,6 +904,7 @@ export class BoardBench {
     };
     // 1) 썬 재료를 호텔 팬으로 옮겨 담고, 준비 재료는 팬에 담긴 3D 모형을 쓴다
     for (const id of Object.keys(this.pans)) {
+      if (!target.includes(id)) continue; // v21: 다른 플레이팅 단계의 팬(이미 올렸거나 나중에 올릴 재료)은 건드리지 않는다
       const it = self.items[id];
       let pieces;
       if (it && it.ing.kind !== 'loaf') {
@@ -914,6 +959,8 @@ export class BoardBench {
       });
       self.top += h;
       self.stack.push({ id, y0, y1: self.top });
+      if (id === 'savoiardi') self.soakTarget = pieces[0];
+      if (id === 'pannacotta') self.foodR = PANNA.r1 * (pieces[0]?.scale.x ?? 1);
       ctx.later(0.62 + (n - 1) * 0.06, () => ctx.sound.plop());
       refresh();
     };
@@ -931,6 +978,7 @@ export class BoardBench {
       });
       self.top -= h * (step.style === 'fan' ? 1.2 : 1);
       self.stack.pop();
+      if (id === 'pannacotta') self.foodR = 0;
       ctx.sound.tap();
       refresh();
     };
@@ -941,7 +989,7 @@ export class BoardBench {
         { label: '하나 빼기', icon: 'undo', onClick: undo, disabled: !placed.length },
         { label: '완성', icon: 'check', primary: true, onClick: done, disabled: !placed.length },
       ]);
-      for (const [id, pan] of Object.entries(self.pans)) pan.userData.label.visible = !placed.includes(id);
+      for (const [id, pan] of Object.entries(self.pans)) pan.userData.label.visible = target.includes(id) && !placed.includes(id);
       if (topBread) topBread.userData.ring = !placed.includes('bread_top');
     };
 
@@ -958,7 +1006,7 @@ export class BoardBench {
 
     // 화면 탭/드래그 → 어떤 팬(또는 윗면 빵)인가
     const pickId = (ndc) => {
-      const objs = [...Object.values(self.pans), ...(topBread && !placed.includes('bread_top') ? [topBread] : [])];
+      const objs = [...Object.entries(self.pans).filter(([id]) => target.includes(id)).map(([, p]) => p), ...(topBread && !placed.includes('bread_top') ? [topBread] : [])];
       const hit = ctx.raycast(ndc, objs)[0];
       if (!hit) return null;
       let o = hit.object;
@@ -967,7 +1015,7 @@ export class BoardBench {
       return Object.entries(self.pans).find(([, p]) => p === o)?.[0] ?? null;
     };
     let drag = null;
-    ctx.ui.step(step.style === 'fan' ? '부채꼴로 정갈하게 올리기' : '레시피 순서대로 쌓기', '팬의 재료를 순서대로 탭');
+    ctx.ui.step(self.dolce ? step.label : step.style === 'fan' ? '부채꼴로 정갈하게 올리기' : '레시피 순서대로 쌓기', '팬의 재료를 순서대로 탭');
     refresh();
     return {
       down(e, ndc) {
@@ -1228,10 +1276,14 @@ export class BoardBench {
     const ctx = this.ctx;
     const self = this;
     const honey = step.liquid === 'honey';
-    const bottle = honey ? this.honey : this.oil;
+    const L = LIQUID[step.liquid] ?? LIQUID.oil;
+    const bottle = this.dolce ? this.pitcher : honey ? this.honey : this.oil;
     const home = bottle.position.clone();
-    const mat = kit.mat(honey ? '#c98a1f' : '#a8a02a', { rough: 0.05, opacity: 0.82, env: 1.4 });
+    const mat = kit.mat(L.color, { rough: 0.05, opacity: L.opacity, env: 1.4 });
     const y = this.top + 0.004;
+    // v21: 푸딩처럼 접시보다 좁은 음식은, 음식 밖으로 나간 줄기가 접시 면으로 흘러내린다 (허공에 뜨지 않게)
+    const R = this.foodR || 0;
+    const yAt = (p) => (R && Math.hypot(p.x, p.z) > R ? 0.0165 : y);
     // v16: 접시 위 음식의 실제 최고점. 병 노즐 끝은 항상 그보다 8cm 위 허공, 줄기만 표면(+3mm)에 내려앉는다
     const foodTop = getFoodTopY(self.dish);
     const NOZZLE_Y = foodTop + 0.08;
@@ -1245,7 +1297,7 @@ export class BoardBench {
       const nz = lowestPoint(bottle);
       if (!nz || !pDish) return (stream.visible = false);
       const a = this.stage.worldToLocal(nz.clone());
-      const b = this.stage.worldToLocal(self.dish.localToWorld(pDish.clone().setY(surfY)));
+      const b = this.stage.worldToLocal(self.dish.localToWorld(pDish.clone().setY(R ? yAt(pDish) : surfY)));
       const len = a.distanceTo(b);
       stream.visible = len > 0.01;
       stream.position.copy(a).add(b).multiplyScalar(0.5);
@@ -1253,7 +1305,7 @@ export class BoardBench {
       stream.quaternion.setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize());
     };
     ctx.view(V(PLATE.x, Y0 + 0.05, PLATE.z), 0.36, 1.15);
-    ctx.ui.step(honey ? '꿀 드리즐' : '엑스트라 버진 올리브오일', '접시 위를 지그재그로');
+    ctx.ui.step(L.title, '접시 위를 지그재그로');
     let path = null;
     let reversals = 0;
     let lastDir = 0;
@@ -1267,7 +1319,8 @@ export class BoardBench {
       ctx.ui.pop(`지그재그 ${reversals}번 · ${score}점`, score >= 70);
       stream.visible = false;
       this.tw.to(bottle, { pos: home, quat: new THREE.Quaternion(), dur: 0.4 });
-      ctx.sound.pourStop();
+      ctx.sound.drizzleStop();
+      if (step.liquid === 'espresso' && self.soakTarget) soak(self.soakTarget); // 시럽을 머금은 비스킷은 색이 짙어진다
       ctx.done(score, '드리즐');
     };
     ctx.ui.meter(`<div class="wb-chips"><span>지그재그 4번 이상</span></div>`);
@@ -1277,7 +1330,7 @@ export class BoardBench {
         const p = ctx.planeHit(ndc, Y0 + y);
         if (!p) return;
         path = [p.sub(self.dish.position)];
-        ctx.sound.pourStart();
+        ctx.sound.drizzleStart();
       },
       move(e, ndc) {
         const w = ctx.planeHit(ndc, NOZZLE_Y + 0.05);
@@ -1302,9 +1355,11 @@ export class BoardBench {
         }
         total++;
         if (Math.hypot(p.x, p.z) < PLATE.r * 0.85) inside++;
-        const seg = kit.cyl(0.0022, 0.0022, d, mat, { seg: 6 });
-        seg.position.copy(p).add(q).multiplyScalar(0.5).setY(y);
-        seg.quaternion.setFromUnitVectors(V(0, 1, 0), p.clone().sub(q).normalize());
+        const pa = q.clone().setY(yAt(q));
+        const pb = p.clone().setY(yAt(p));
+        const seg = kit.cyl(0.0022, 0.0022, Math.max(d, pa.distanceTo(pb)), mat, { seg: 6 });
+        seg.position.copy(pa).add(pb).multiplyScalar(0.5);
+        seg.quaternion.setFromUnitVectors(V(0, 1, 0), pb.clone().sub(pa).normalize());
         seg.castShadow = false;
         self.dish.add(seg);
         segs.push(seg);
@@ -1313,13 +1368,13 @@ export class BoardBench {
       up() {
         path = null;
         stream.visible = false;
-        ctx.sound.pourStop();
+        ctx.sound.drizzleStop();
         bottle.quaternion.setFromEuler(new THREE.Euler(0, 0, 0.4));
         keepAbove(bottle, NOZZLE_Y);
       },
       update() {},
       destroy() {
-        ctx.sound.pourStop();
+        ctx.sound.drizzleStop();
         stream.visible = false;
         bottle.position.copy(home);
         bottle.quaternion.identity();
@@ -1419,6 +1474,99 @@ export class BoardBench {
         self.postTween = null;
         self.mill.position.copy(home);
         self.mill.quaternion.identity();
+      },
+    };
+  }
+
+  // ───── v21 코코아 파우더 체 치기 (돌체) ─────
+  // 체를 음식 위 10cm 허공에 띄우고 화면을 둥글게 3바퀴 돌리면 고운 가루가 솔솔 내려앉아 윗면을 덮는다.
+  dust(step) {
+    const ctx = this.ctx;
+    const self = this;
+    const tool = this.sifter;
+    const home = tool.position.clone();
+    const topSurfaceY = Y0 + this.top;
+    const plateW = this.stage.localToWorld(V(PLATE.x, Y0, PLATE.z));
+    const others = [tool, this.knife, this.spatula, this.pitcher, ...Object.values(this.pans ?? {}), ...Object.values(this.panFood ?? {})].filter(Boolean);
+    const flakes = [];
+    const foodTop = () => Math.max(getFoodTopY(this.dish, { exclude: flakes }), getFoodTopY(this.stage, { exclude: [...others, ...flakes], center: plateW, radius: PLATE.r + 0.02 }), topSurfaceY);
+    const CLEAR = 0.1;
+    const at = V(PLATE.x, foodTop() + CLEAR + 0.004, PLATE.z);
+    const landY = this.top + 0.0012;
+    let active = true;
+    const overPlate = () => {
+      const l = tool.position;
+      return Math.hypot(l.x - PLATE.x, l.z - PLATE.z) < PLATE.r + 0.06;
+    };
+    // 날아올 때 · 치는 동안 · 돌아갈 때 모두, 접시 위에서는 체 바닥이 음식 위 10cm 아래로 내려오지 않는다
+    this.postTween = () => (active || overPlate()) && keepAbove(tool, foodTop() + CLEAR);
+    this.tw.to(tool, { pos: at, quat: new THREE.Quaternion(), dur: 0.45, arc: 0.05 });
+    ctx.view(V(PLATE.x, Y0 + this.top + 0.06, PLATE.z), 0.44, 0.7);
+    ctx.ui.step(step.label ?? '코코아 파우더 체 치기', '빙글빙글 3바퀴 돌려요');
+    // 윗면을 덮어 가는 코코아 층 (돌릴수록 짙어진다)
+    const veilMat = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4a2b19').convertSRGBToLinear(), roughness: 1, transparent: true, opacity: 0, depthWrite: false });
+    const veil = new THREE.Mesh(new THREE.BoxGeometry(0.084, 0.0008, 0.074), veilMat);
+    veil.position.set(0, landY - 0.0002, 0);
+    veil.castShadow = false;
+    this.dish.add(veil);
+    flakes.push(veil);
+    let angle = null;
+    let acc = 0;
+    let turns = 0;
+    let emitted = 0;
+    const speck = kit.mat('#4a2b19', { rough: 1 });
+    const refresh = () => ctx.ui.meter(`<div class="wb-chips"><span>${turns.toFixed(1)} / 3 바퀴</span></div>`);
+    const finish = () => {
+      const score = Math.max(30, Math.round(100 - Math.abs(turns - 3) * 22));
+      ctx.ui.pop(`${score}점 · ${scoreWord(score)}`, score >= 70);
+      active = false;
+      self.tw.to(tool, { pos: home, quat: new THREE.Quaternion(), dur: 0.45, arc: 0.04 });
+      ctx.done(score, '코코아 파우더');
+    };
+    refresh();
+    ctx.ui.actions([{ label: '완료', icon: 'check', primary: true, onClick: finish }]);
+    return {
+      down(e) {
+        angle = screenAngle(e);
+      },
+      move(e) {
+        if (angle === null) return;
+        const a = screenAngle(e);
+        let d = a - angle;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        angle = a;
+        acc += Math.abs(d);
+        turns = acc / (Math.PI * 2);
+        // 체를 톡톡 치듯 좌우로 살짝 흔든다
+        tool.rotation.set(0, 0, Math.sin(acc * 4) * 0.07);
+        keepAbove(tool, foodTop() + CLEAR);
+        veilMat.opacity = Math.min(0.92, turns / 3);
+        while (emitted < acc / 0.3) {
+          emitted++;
+          if (emitted % 3 === 0) ctx.sound.sift?.();
+          const nz = lowestPoint(tool);
+          const from = nz ? self.dish.worldToLocal(nz.clone()) : V(0, self.top + CLEAR, 0);
+          for (let i = 0; i < 3; i++) {
+            const s = kit.box(0.0013, 0.0009, 0.0013, speck);
+            s.castShadow = false;
+            flakes.push(s);
+            const r0 = Math.sqrt(Math.random()) * 0.028;
+            const t0 = Math.random() * Math.PI * 2;
+            s.position.set(from.x + Math.cos(t0) * r0, from.y - 0.003, from.z + Math.sin(t0) * r0);
+            self.dish.add(s);
+            self.tw.to(s, { pos: V((Math.random() * 2 - 1) * 0.04, landY, (Math.random() * 2 - 1) * 0.035), dur: 0.4 + Math.random() * 0.25 });
+          }
+        }
+        refresh();
+      },
+      up() {
+        angle = null;
+      },
+      update() {},
+      destroy() {
+        self.postTween = null;
+        tool.position.copy(home);
+        tool.quaternion.identity();
       },
     };
   }
@@ -1525,6 +1673,11 @@ function panPortion(id, ing) {
     g.add(o);
     return o;
   };
+  const dp = dolcePortion(id);
+  if (dp) {
+    // v21 돌체 재료는 밧드보다 작게 만들어 둔 한 덩어리 (높이가 3cm 를 넘는 푸딩도 그대로)
+    return dp;
+  }
   if (id === 'bacon') for (let i = 0; i < 3; i++) add(heroBacon(), 0, -0.02 + i * 0.02, 0.1 * i, i * 0.003);
   else if (id === 'lettuce') {
     // v19: 밧드 안쪽(10.8 x 9.3cm)에 들어가는 크기 — 예전 11cm 잎이 스테인리스 벽을 뚫고 삐져나왔다
@@ -1704,6 +1857,14 @@ function sectionTexture(stack, yBot, yTop) {
 }
 
 // 화면 중심(3D 뷰포트 중심) 기준 포인터 각도 (가로 회전 모드 대응)
+// 드리즐 액체: 줄기 색 · 병 색 · 안내 문구
+const LIQUID = {
+  oil: { color: '#a8a02a', opacity: 0.82, title: '엑스트라 버진 올리브오일' },
+  honey: { color: '#c98a1f', opacity: 0.82, title: '꿀 드리즐' },
+  espresso: { color: '#3a2212', opacity: 0.9, title: '에스프레소 시럽 적시기', bottle: '#4a3020', tool: '에스프레소 시럽 병' },
+  coulis: { color: '#b3122f', opacity: 0.92, title: '라즈베리 쿨리 드리즐', bottle: '#a81a34', tool: '라즈베리 쿨리 병' },
+};
+
 function screenAngle(e) {
   return Math.atan2(e.clientY - window.innerHeight * 0.37, e.clientX - window.innerWidth / 2);
 }

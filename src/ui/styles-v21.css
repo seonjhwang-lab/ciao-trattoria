@@ -1,0 +1,737 @@
+/* v21 타이쿤 확장: 오늘의 특선 · 식자재 등급 · 5성 등급 & 업적 · 미식가 · 돌체 · 배경음악
+   원칙(v17): 높이는 내용만큼 · line-height 1.35 이상 · 자르지 않는다 · 아이콘은 SVG */
+
+/* ───── 공통 모달 틀 (특선 선택창 · 등급 & 업적) ───── */
+#ui .spk,
+#ui .rank {
+  position: absolute !important;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(10px + var(--sat)) 12px calc(10px + var(--sab));
+  box-sizing: border-box;
+  background: rgba(43, 29, 20, 0.45);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+#ui .spk {
+  z-index: 58;
+}
+#ui .rank {
+  z-index: 56;
+}
+#ui .spk.hidden,
+#ui .rank.hidden {
+  display: none;
+}
+.spk-card,
+.rank-card {
+  width: min(440px, 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 11px 11px;
+  border: 2px solid #2b1d14;
+  border-radius: 18px;
+  background: var(--paper-tex, #f7f1e5);
+  color: #2b1d14;
+  box-shadow: 0 0 0 5px #f7f1e5, 0 0 0 6.5px rgba(43, 29, 20, 0.5), 0 22px 50px rgba(30, 18, 10, 0.4);
+  animation: mbIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  cursor: default;
+  line-height: 1.35;
+}
+
+/* ───── 오늘의 특선 선택창 ───── */
+.spk-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid #2b1d14;
+}
+.spk-ic {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #d9a32a;
+  color: #fff8e6;
+  border: 1.5px solid #2b1d14;
+}
+.spk-ic .ic {
+  --icw: 19px;
+  --ich: 19px;
+}
+.spk-head b {
+  display: block;
+  font-family: var(--head);
+  font-size: 18px;
+  line-height: 1.35;
+}
+.spk-head small {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-style: italic;
+  color: #b84a27;
+}
+.spk-sub,
+.spk-vip {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #6e5a48;
+}
+.spk-vip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 10px;
+  border: 1.5px solid #2b1d14;
+  background: #2b1d14;
+  color: #ffe9b0;
+  font-weight: 700;
+}
+.spk-vip.hidden {
+  display: none;
+}
+.spk-vip .ic {
+  --icw: 17px;
+  --ich: 17px;
+  color: #ffd866;
+}
+.spk-tabs {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr));
+  gap: 5px;
+}
+#ui .spk-tab {
+  position: relative;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 2px solid #2b1d14;
+  background: #fffaf0;
+  color: #2b1d14;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.spk-tab .ic {
+  --icw: 16px;
+  --ich: 16px;
+}
+.spk-tab.on {
+  background: #2b1d14;
+  color: #fff8ee;
+}
+.spk-tab.has::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d9a32a;
+  border: 1px solid #2b1d14;
+}
+.spk-list {
+  display: grid;
+  gap: 5px;
+}
+#ui .spk-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 5px 9px;
+  border-radius: 13px;
+  border: 2px solid #2b1d14;
+  background: #fffdf7;
+  color: #2b1d14;
+  text-align: left;
+  box-shadow: 0 3px 0 #2b1d14;
+}
+.spk-item:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #2b1d14;
+}
+.spk-item.on {
+  background: #fff3cf;
+  outline: 3px solid #d9a32a;
+  outline-offset: 1px;
+}
+.spk-mi {
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #f3e8d6;
+  display: grid;
+  place-items: center;
+  color: #b84a27;
+}
+.spk-txt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.spk-txt b {
+  display: block;
+  font-family: var(--head);
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.spk-txt small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #6e5a48;
+}
+.spk-txt em {
+  font-style: normal;
+  font-weight: 800;
+  color: #b84a27;
+}
+.spk-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #e9dcc4;
+  color: #6e5a48;
+  white-space: nowrap;
+}
+.spk-item.on .spk-badge {
+  background: #d9a32a;
+  color: #2b1d14;
+}
+.spk-badge .ic {
+  --icw: 12px;
+  --ich: 12px;
+}
+#ui .spk-ok {
+  min-height: 46px;
+  width: 100%;
+  line-height: 1.35;
+}
+
+/* ───── 메뉴판: 6번째 코너(돌체) + 특선 배지 ───── */
+.mb16-tabs {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+#ui .mb16-tab {
+  position: relative;
+  font-size: 10.5px;
+  overflow: visible;
+}
+.mb16-tab.sp::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d9a32a;
+  border: 1px solid #2b1d14;
+}
+#ui .mb16-item.special {
+  background: #fff3cf;
+  outline: 3px solid #d9a32a;
+  outline-offset: -1px;
+}
+.mb16-sp {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 10.5px;
+  line-height: 1.35;
+  padding: 1px 6px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #d9a32a;
+  color: #2b1d14;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.mb16-sp .ic {
+  --icw: 11px;
+  --ich: 11px;
+}
+
+/* ───── 상단 메뉴: 항목 6개 + 받을 보상 점 ───── */
+.hm-card {
+  width: min(254px, calc(var(--aw, 100vw) - 28px));
+  gap: 5px;
+  padding: 9px;
+}
+.hm-card button {
+  min-height: 42px;
+  line-height: 1.35;
+  font-size: 13.5px;
+  gap: 8px;
+  padding: 0 10px;
+}
+.hud-menu-btn {
+  position: relative;
+}
+.hud-menu-btn.dot::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d9a32a;
+  border: 1.5px solid #2b1d14;
+}
+.hm-card .hm-ach:not(:empty) {
+  background: #d9a32a;
+  color: #2b1d14;
+}
+
+/* ───── 카탈로그 탭 + 식자재 & 숙련도 ───── */
+.cat-tabs,
+.rank-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+#ui .cat-tabs button,
+#ui .rank-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 3px 6px;
+  border: 2px solid #2b1d14;
+  border-radius: 12px;
+  background: #fffaf0;
+  color: #2b1d14;
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#ui .cat-tabs button.on,
+#ui .rank-tabs button.on {
+  background: #2b1d14;
+  color: #fff8ee;
+}
+.cat-tabs .ic,
+.rank-tabs .ic {
+  --icw: 16px;
+  --ich: 16px;
+}
+.ing-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #6e5a48;
+}
+.cat-body.ing {
+  gap: 6px;
+}
+.cat-body.ing .cat-grid {
+  gap: 5px;
+}
+#ui .cat-item.ing-item {
+  padding: 5px 8px;
+  gap: 8px;
+  box-shadow: 1px 2px 0 rgba(43, 29, 20, 0.85);
+}
+.ing-item .ci-ic {
+  flex-basis: 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+.ing-item .ci-ic .ic {
+  --icw: 18px;
+  --ich: 18px;
+  width: 18px;
+  height: 18px;
+}
+.ing-item .ci-txt b {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.ing-item .ci-txt small {
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.ing-item .ci-tag {
+  font-size: 11px;
+  padding: 3px 7px;
+  line-height: 1.35;
+}
+.ing-pips {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.ing-pips i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.3px solid #2b1d14;
+  background: transparent;
+}
+.ing-pips i.on {
+  background: #d9a32a;
+}
+
+/* ───── 등급 & 업적 ───── */
+.rank-tabs .rk-n:not(:empty) {
+  font-style: normal;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  background: #d9a32a;
+  color: #2b1d14;
+}
+.rank-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.st5 {
+  display: inline-flex;
+  gap: 3px;
+}
+.st5 i {
+  display: inline-grid;
+  color: #d9cbb3;
+}
+.st5 i.on {
+  color: #d9a32a;
+}
+.st5 .ic {
+  --icw: 24px;
+  --ich: 24px;
+}
+.rk-now {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.rk-name {
+  font-family: var(--head);
+  font-size: 17px;
+  line-height: 1.35;
+}
+.rk-next {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #6e5a48;
+}
+.rk-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  border: 1.5px solid #2b1d14;
+  background: #efe4cf;
+  box-sizing: border-box;
+}
+.rk-bar.big {
+  height: 12px;
+}
+.rk-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8c15a, #d9a32a);
+}
+.rk-parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.rk-parts li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.rk-parts li .rk-bar {
+  grid-column: 1 / -1;
+}
+.rk-pl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+.rk-pl .ic {
+  --icw: 13px;
+  --ich: 13px;
+  color: #4a6338;
+}
+.rk-pv {
+  font-weight: 800;
+  color: #b84a27;
+}
+.rk-parts li.ok .rk-pv {
+  color: #4a6338;
+}
+.rk-ladder {
+  list-style: none;
+  margin: 0;
+  padding: 7px 0 0;
+  border-top: 1.5px dashed rgba(43, 29, 20, 0.4);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.rk-ladder li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.35;
+  word-break: keep-all;
+  color: #9a8b78;
+}
+.rk-ladder li i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 11px;
+}
+.rk-ladder li.done {
+  color: #4a6338;
+}
+.rk-ladder li.now {
+  color: #2b1d14;
+  font-weight: 800;
+}
+.rk-ladder li.now i {
+  background: #d9a32a;
+  border-color: #2b1d14;
+}
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+#ui .ach {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 4px 7px;
+  border: 1.5px solid #2b1d14;
+  border-radius: 11px;
+  background: #fffaf0;
+  color: #2b1d14;
+  text-align: left;
+}
+.ach-ic {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f1e6d2;
+  color: #b84a27;
+}
+.ach-ic .ic {
+  --icw: 15px;
+  --ich: 15px;
+}
+.ach-t {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ach-t b {
+  display: block;
+  font-family: var(--head);
+  font-size: 11.5px;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.ach-t small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #6e5a48;
+}
+#ui .ach.s-todo {
+  opacity: 0.72;
+}
+#ui .ach.s-claim {
+  background: #fff3cf;
+  box-shadow: 0 3px 0 #2b1d14;
+  border-width: 2px;
+}
+.ach.s-claim .ach-ic {
+  background: #d9a32a;
+  color: #2b1d14;
+}
+.ach.s-claim .ach-t small {
+  color: #b84a27;
+  font-weight: 800;
+}
+#ui .ach.s-done {
+  background: #e6ecd9;
+}
+.ach.s-done .ach-ic {
+  background: #4a6338;
+  color: #fff;
+}
+
+/* ───── 축하 카드: 미식 매거진 헤드라인 · 승급 ───── */
+#ui .letter.cele {
+  z-index: 62;
+}
+.cele-card {
+  line-height: 1.4;
+}
+.nw-mast {
+  border-top: 3px double #2b1d14;
+  border-bottom: 3px double #2b1d14;
+  padding: 4px 0;
+  font-family: 'Playfair Display', var(--head);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+.nw-date {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #6e5a48;
+}
+.cele-card .nw-title {
+  margin: 6px 0 4px;
+  font-family: var(--head);
+  font-size: 20px;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.cele-card .rk-stars {
+  margin: 8px 0 2px;
+}
+.lt-seal.gold {
+  background: #d9a32a;
+  color: #2b1d14;
+  border: 2px solid #2b1d14;
+}
+
+/* ───── 예고 배너 (미식가 방문 · 오늘의 특선) ───── */
+#ui .day-banner {
+  position: absolute;
+  left: 50%;
+  bottom: calc(76px + var(--sab)); /* 위쪽 토스트 자리와 겹치지 않게 주문 티켓 줄 바로 위 */
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  box-sizing: border-box;
+  padding: 7px 13px;
+  border: 2px solid #2b1d14;
+  border-radius: 14px;
+  background: #2b1d14;
+  color: #ffe9b0;
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 6px 16px rgba(30, 18, 10, 0.35);
+  pointer-events: none;
+  animation: bannerIn 0.35s ease-out both;
+}
+#ui .day-banner.hidden {
+  display: none;
+}
+.day-banner .ic {
+  --icw: 18px;
+  --ich: 18px;
+  color: #ffd866;
+}
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+body.workbench .day-banner,
+body.talking .day-banner {
+  display: none !important;
+}
+
+/* ───── 말풍선 배지: 미식가 · 단골 특별 의뢰 ───── */
+.bubble.talk.vip {
+  background: #2b1d14;
+  color: #ffe9b0;
+  border-color: #d9a32a;
+}
+.bubble.talk.vip .ic {
+  color: #ffd866;
+}
+.bubble.talk.request {
+  background: #fff3cf;
+  border-color: #d9a32a;
+}
+.bubble.talk.request .ic {
+  color: #b84a27;
+}
+
+/* v17 의 display:flex !important 가 .hidden 을 이겨, 완성 결과창 위에 마지막 단계 패널(완료 버튼)이 그대로 남던 문제 */
+.wb .wb-side .wb-bottom.hidden,
+.wb .wb-side .wb-result.hidden {
+  display: none !important;
+}
